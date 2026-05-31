@@ -1,0 +1,622 @@
+<!DOCTYPE html>
+<html lang="vi">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>GIS Lưới Điện Chuyên Nghiệp - Lào Cai</title>
+    <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/leaflet.draw/1.0.4/leaflet.draw.css" />
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
+
+    <style>
+        body { margin: 0; padding: 0; font-family: 'Segoe UI', Tahoma, Geneva, sans-serif; height: 100vh; overflow: hidden; background: #f8fafc; display: block; }
+        
+        #map-container { width: 100vw; height: 100vh; position: absolute; top: 0; left: 0; display: flex; flex-direction: column; }
+        #map { flex-grow: 1; z-index: 1; }
+        .drawing-mode-active { cursor: crosshair !important; }
+
+        #sidebar { position: absolute; top: 15px; left: 15px; width: 330px; max-height: calc(100vh - 30px); background: #ffffff; border-radius: 10px; display: flex; flex-direction: column; z-index: 1001; box-shadow: 0 6px 20px rgba(0,0,0,0.25); transition: 0.3s; }
+        #sidebar.collapsed .tool-section, #sidebar.collapsed .footer { display: none; }
+        #sidebar.collapsed .header { border-radius: 10px; } 
+
+        .header { padding: 15px; background: #0284c7; color: white; font-weight: bold; font-size: 1.1rem; border-radius: 10px 10px 0 0; cursor: pointer; display: flex; justify-content: space-between; align-items: center; user-select: none; transition: 0.3s;}
+        .header:hover { background: #0369a1; }
+        #sidebar-icon { transition: transform 0.3s; font-size: 1.2rem;}
+        #sidebar:not(.collapsed) #sidebar-icon { transform: rotate(-180deg); }
+
+        .tool-section { padding: 10px 15px; overflow-y: auto; flex-grow: 1; }
+        
+        .accordion-toggle { display: flex; align-items: center; justify-content: space-between; background: #f1f5f9; padding: 12px; border-radius: 6px; cursor: pointer; font-weight: bold; color: #0f172a; font-size: 0.95rem; margin-top: 10px; margin-bottom: 5px; border: 1px solid #cbd5e1; transition: 0.2s; }
+        .accordion-toggle:hover { background: #e2e8f0; }
+        .accordion-content { display: none; padding: 5px 0 10px 10px; border-left: 2px solid #e2e8f0; margin-left: 5px; }
+        .accordion-content.show { display: block; animation: fadeIn 0.3s ease; }
+        @keyframes fadeIn { from { opacity: 0; transform: translateY(-5px); } to { opacity: 1; transform: translateY(0); } }
+
+        .tool-btn { width: 100%; padding: 10px; margin-bottom: 8px; border: 1px solid #e2e8f0; border-radius: 8px; background: white; cursor: pointer; display: flex; align-items: center; gap: 10px; transition: 0.2s; font-size: 0.95rem; color: #1e293b; font-weight: 500;}
+        .tool-btn:hover { background: #f0f9ff; border-color: #0284c7; }
+        .tool-btn.active { background: #e0f2fe; border-color: #0284c7; font-weight: bold; color: #0284c7; box-shadow: inset 3px 0 0 #0284c7;}
+
+        .icon-tba { width: 20px; height: 20px; border: 2px solid #1e293b; background: white; display: flex; align-items: center; justify-content: center; }
+        .icon-tba::after { content: ''; width: 0; height: 0; border-left: 6px solid transparent; border-right: 6px solid transparent; border-bottom: 10px solid #fbbf24; margin-top: -2px;}
+        .icon-ctt { width: 16px; height: 16px; background: #fbbf24; border-radius: 50%; border: 2px solid #1e293b; }
+        .icon-cht { width: 16px; height: 16px; background: #22c55e; border: 2px solid #1e293b; }
+        .line-preview { width: 25px; height: 4px; }
+
+        .leaflet-div-icon { background: transparent; border: none; }
+        .custom-labeled-icon { overflow: visible !important; } 
+        .map-icon-tba { width: 24px; height: 24px; border: 2px solid #1e293b; background: white; display: flex; align-items: center; justify-content: center; box-shadow: 2px 2px 4px rgba(0,0,0,0.3); }
+        .map-icon-tba::after { content: ''; border-left: 7px solid transparent; border-right: 7px solid transparent; border-bottom: 12px solid #fbbf24; margin-top: -2px;}
+        .map-icon-ctt { width: 18px; height: 18px; background: #fbbf24; border-radius: 50%; border: 2px solid #1e293b; box-shadow: 2px 2px 4px rgba(0,0,0,0.3);}
+        .map-icon-cht { width: 18px; height: 18px; background: #22c55e; border: 2px solid #1e293b; box-shadow: 2px 2px 4px rgba(0,0,0,0.3);}
+        .marker-label { position: absolute; top: 28px; left: 50%; transform: translateX(-50%); white-space: nowrap; font-size: 12px; font-weight: bold; color: #0f172a; text-shadow: 1.5px 1.5px 0 #fff, -1.5px -1.5px 0 #fff, 1.5px -1.5px 0 #fff, -1.5px 1.5px 0 #fff; pointer-events: none; z-index: 1000;}
+
+        .footer { padding: 15px; background: #f8fafc; border-top: 1px solid #e2e8f0; border-radius: 0 0 10px 10px;}
+        .btn-system { width: 100%; padding: 10px; margin-top: 8px; border-radius: 6px; border: none; cursor: pointer; font-weight: bold; color: white; font-size: 0.9rem; transition: 0.2s;}
+        .btn-system:hover { filter: brightness(1.1); }
+
+        .search-box { position: absolute; top: 15px; left: 360px; z-index: 1000; background: white; padding: 8px; border-radius: 8px; box-shadow: 0 4px 15px rgba(0,0,0,0.2); display: flex; gap: 5px; border-left: 4px solid #0284c7;}
+        .search-box input { padding: 8px 12px; border: 1px solid #cbd5e1; border-radius: 4px; width: 220px; outline: none; font-family: inherit; }
+        .search-box button { padding: 8px 15px; background: #0284c7; color: white; border: none; border-radius: 4px; cursor: pointer; font-weight: bold; transition: 0.2s; }
+        .search-box button:hover { background: #0369a1; }
+        
+        .leaflet-control-layers { font-family: 'Segoe UI', sans-serif; border-radius: 8px; padding: 5px; box-shadow: 0 2px 10px rgba(0,0,0,0.2) !important; }
+        #draw-hint { position: absolute; bottom: 20px; left: 50%; transform: translateX(-50%); z-index: 1000; background: rgba(30, 41, 59, 0.9); color: white; padding: 8px 20px; border-radius: 20px; font-size: 0.95rem; display: none; pointer-events: none; text-align: center; line-height: 1.5; box-shadow: 0 4px 10px rgba(0,0,0,0.3);}
+        .hint-esc { color: #fca5a5; font-weight: bold; }
+
+        .popup-form { width: 260px; }
+        .popup-form h3 { margin: 0 0 10px 0; color: #0284c7; font-size: 15px; border-bottom: 2px solid #e2e8f0; padding-bottom: 5px; text-transform: uppercase;}
+        .popup-form input { width: 100%; padding: 8px; margin-bottom: 8px; border: 1px solid #cbd5e1; border-radius: 4px; box-sizing: border-box; font-family: inherit;}
+        .popup-form button.btn-save { width: 100%; padding: 10px; background: #16a34a; color: white; border: none; border-radius: 4px; font-weight: bold; cursor: pointer; transition: 0.2s; margin-top: 5px;}
+        
+        .popup-img { width: 100%; border-radius: 8px; margin-top: 10px; max-height: 150px; object-fit: cover; border: 1px solid #e2e8f0; cursor: zoom-in; transition: 0.3s;}
+        .popup-img:hover { filter: brightness(0.9); box-shadow: 0 4px 8px rgba(0,0,0,0.2); }
+        .img-count-badge { text-align: center; font-size: 11px; color: #64748b; margin-top: 5px; font-weight: bold; }
+        
+        .action-btns { display: flex; gap: 5px; margin-top: 10px; }
+        .action-btns button { padding: 8px; font-size: 0.85rem; flex: 1; color: white; border: none; border-radius: 4px; cursor: pointer; font-weight: bold;}
+        .btn-edit { background: #f59e0b; } .btn-edit:hover { background: #d97706; }
+        .btn-delete { background: #ef4444; } .btn-delete:hover { background: #dc2626; }
+        .btn-folder { display: block; background: #3b82f6; color: white; padding: 10px; text-align: center; border-radius: 6px; text-decoration: none; font-weight: bold; margin-top: 10px; font-size: 0.9rem; transition: 0.2s;}
+        .btn-folder:hover { background: #2563eb; }
+
+        .leaflet-control-custom-measure a { font-size: 16px; line-height: 30px; text-align: center; text-decoration: none; color: #333; display: block; background: white;}
+        .leaflet-control-custom-measure a:hover { background-color: #f4f4f4; }
+        .measure-tooltip { background: #0284c7; color: white; border: none; font-weight: bold; border-radius: 4px; box-shadow: 0 2px 5px rgba(0,0,0,0.3); font-size: 13px; }
+        .measure-tooltip::before { border-right-color: #0284c7; border-left-color: #0284c7; }
+
+        .leaflet-control-my-location a { font-size: 16px; line-height: 30px; text-align: center; text-decoration: none; color: #333; display: block; background: white;}
+        .leaflet-control-my-location a:hover { background-color: #f4f4f4; }
+
+        #gallery-modal { position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: rgba(15, 23, 42, 0.95); z-index: 9999; display: none; flex-direction: column; align-items: center; justify-content: center; backdrop-filter: blur(5px); }
+        #gallery-modal.show { display: flex; }
+        .close-gallery { position: absolute; top: 20px; right: 30px; color: white; font-size: 40px; font-weight: bold; cursor: pointer; transition: 0.2s; z-index: 10000; }
+        .close-gallery:hover { color: #ef4444; transform: scale(1.1); }
+        #main-gallery-img { max-width: 90vw; max-height: 70vh; border-radius: 12px; box-shadow: 0 10px 30px rgba(0,0,0,0.5); object-fit: contain; background: black; }
+        #thumb-strip { display: flex; gap: 12px; margin-top: 25px; max-width: 90vw; overflow-x: auto; padding: 10px 5px; }
+        .thumb-img { width: 80px; height: 80px; object-fit: cover; border-radius: 8px; cursor: pointer; opacity: 0.5; transition: 0.3s; border: 3px solid transparent; flex-shrink: 0; box-shadow: 0 2px 8px rgba(0,0,0,0.3);}
+        .thumb-img:hover { opacity: 0.8; transform: translateY(-3px); }
+        .thumb-img.active { opacity: 1; border-color: #38bdf8; transform: scale(1.05); }
+        #thumb-strip::-webkit-scrollbar { height: 8px; }
+        #thumb-strip::-webkit-scrollbar-thumb { background: #64748b; border-radius: 4px; }
+        
+        .leaflet-draw-toolbar a { background-color: #f8fafc !important; border: 1px solid #94a3b8 !important;}
+        .highlighted-line { filter: drop-shadow(0 0 4px rgba(0,0,0,0.6)); cursor: pointer; }
+    </style>
+</head>
+<body>
+
+<div id="gallery-modal">
+    <span class="close-gallery" onclick="closeGallery()">&times;</span>
+    <img id="main-gallery-img" src="" alt="Main Image">
+    <div id="thumb-strip"></div>
+</div>
+
+<div id="map-container">
+    <div class="search-box">
+        <input type="text" id="coord-input" placeholder="VD: 22.4856, 104.1481">
+        <button onclick="gotoCoords()">📍 Tìm vị trí</button>
+    </div>
+    <div id="draw-hint">🖱️ Click để vẽ.</div>
+    <div id="map"></div>
+</div>
+
+<div id="sidebar" class="collapsed">
+    <div class="header" onclick="toggleSidebar()">
+        <div>
+            SƠ ĐỒ LƯỚI ĐIỆN HẠ THẾ<br>
+            <span style="font-size: 0.85em; color: #bae6fd;">ĐIỆN LỰC VĂN BÀN</span>
+        </div>
+        <div id="sidebar-icon">▼</div>
+    </div>
+    
+    <div class="tool-section">
+        <div class="accordion-toggle" onclick="toggleAcc('acc-tram')"><span>☰ Trạm & Cột Điện</span> <span>▼</span></div>
+        <div id="acc-tram" class="accordion-content show"> 
+            <button class="tool-btn" onclick="setMode(this, 'tba', 'Trạm biến áp')"><div class="icon-tba"></div> Trạm biến áp</button>
+            <button class="tool-btn" onclick="setMode(this, 'ctt', 'Cột trung thế')"><div class="icon-ctt"></div> Cột trung thế</button>
+            <button class="tool-btn" onclick="setMode(this, 'cht', 'Cột hạ thế')"><div class="icon-cht"></div> Cột hạ thế</button>
+        </div>
+
+        <div class="accordion-toggle" onclick="toggleAcc('acc-35')"><span>☰ Đường dây 35kV</span> <span>▼</span></div>
+        <div id="acc-35" class="accordion-content">
+            <button class="tool-btn" onclick="setMode(this, 'dz35', 'Đường dây 35kV', '#eab308')"><div class="line-preview" style="background:#eab308"></div> ĐZ 35kV Nổi (Vàng)</button>
+            <button class="tool-btn" onclick="setMode(this, 'cn35', 'Cáp ngầm 35kV', '#eab308', '10, 10')"><div class="line-preview" style="border-top:4px dashed #eab308"></div> Cáp ngầm 35kV</button>
+        </div>
+
+        <div class="accordion-toggle" onclick="toggleAcc('acc-04')"><span>☰ Đường dây 0.4kV</span> <span>▼</span></div>
+        <div id="acc-04" class="accordion-content">
+            <button class="tool-btn" onclick="setMode(this, 'dz04', 'Lộ Hạ thế', '#ef4444')"><div class="line-preview" style="background:#ef4444"></div> Lộ 0.4kV (Đỏ)</button>
+            <button class="tool-btn" onclick="setMode(this, 'dz04', 'Lộ Hạ thế', '#22c55e')"><div class="line-preview" style="background:#22c55e"></div> Lộ 0.4kV (Xanh lá)</button>
+            <button class="tool-btn" onclick="setMode(this, 'dz04', 'Lộ Hạ thế', '#1e293b')"><div class="line-preview" style="background:#1e293b"></div> Lộ 0.4kV (Đen)</button>
+            <button class="tool-btn" onclick="setMode(this, 'dz04', 'Lộ Hạ thế', '#3b82f6')"><div class="line-preview" style="background:#3b82f6"></div> Lộ 0.4kV (Xanh dương)</button>
+        </div>
+        
+        <div class="accordion-toggle" onclick="toggleAcc('acc-data')"><span>☰ Dữ liệu Excel</span> <span>▼</span></div>
+        <div id="acc-data" class="accordion-content">
+            <button class="tool-btn" onclick="document.getElementById('excel-input').click()" style="justify-content: center; background: #fef08a; color: #b45309; border-color: #f59e0b;">
+                📊 Nhập từ Excel / CSV
+            </button>
+            <input type="file" id="excel-input" style="display:none" accept=".xlsx, .xls, .csv" onchange="importFromExcel(event)">
+            
+            <button class="tool-btn" onclick="exportToExcel()" style="justify-content: center; background: #d9f99d; color: #0f766e; border-color: #84cc16; margin-top: 5px;">
+                📥 Xuất ra file Excel
+            </button>
+        </div>
+    </div>
+
+    <div class="footer">
+        <button class="btn-system" style="background:#0284c7" onclick="exportData()">💾 Tải file Json bản đồ</button>
+        <button class="btn-system" style="background:#10b981" onclick="document.getElementById('import-file').click()">📂 Nạp file Json cũ</button>
+        <input type="file" id="import-file" style="display:none" onchange="importData(event)">
+    </div>
+</div>
+
+<script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/leaflet.draw/1.0.4/leaflet.draw.js"></script>
+
+<script>
+    function toggleSidebar() { document.getElementById('sidebar').classList.toggle('collapsed'); }
+    function toggleAcc(id) { document.getElementById(id).classList.toggle('show'); }
+
+    function formatDistance(meters) {
+        if (meters > 1000) return (meters / 1000).toFixed(2) + ' km';
+        return meters.toFixed(1) + ' m';
+    }
+
+    var positron = L.tileLayer('https://{s}.basemaps.cartocdn.com/light_all/{z}/{x}/{y}{r}.png', { attribution: 'CartoDB' });
+    var osm = L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', { attribution: 'OSM' });
+    var satellite = L.tileLayer('https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}', { attribution: 'Esri' });
+
+    var map = L.map('map', { center: [22.4856, 104.1481], zoom: 12, layers: [positron], doubleClickZoom: false, zoomControl: false });
+    L.control.zoom({ position: 'topright' }).addTo(map);
+
+    var drawnItems = new L.FeatureGroup(); map.addLayer(drawnItems);
+    var boundaryLayer = new L.FeatureGroup(); var bounds = [[21.85, 103.5], [22.85, 104.6]]; 
+    L.rectangle(bounds, { color: "#f97316", weight: 3, fillOpacity: 0.05, dashArray: '8, 10' }).addTo(boundaryLayer);
+    map.addLayer(boundaryLayer);
+
+    L.control.layers(
+        { "🗺️ Bản đồ Sạch (Khuyên dùng)": positron, "🛣️ Bản đồ Giao thông": osm, "🛰️ Bản đồ Vệ tinh": satellite },
+        { "⚡ Lưới điện (Tự vẽ)": drawnItems, "🚩 Ranh giới Lào Cai": boundaryLayer },
+        { position: 'topright' }
+    ).addTo(map);
+
+    var drawControl = new L.Control.Draw({ position: 'topright', edit: { featureGroup: drawnItems }, draw: false }); 
+    map.addControl(drawControl);
+
+    L.Control.MeasureCustom = L.Control.extend({
+        options: { position: 'topright' },
+        onAdd: function (map) {
+            var container = L.DomUtil.create('div', 'leaflet-bar leaflet-control leaflet-control-custom-measure');
+            container.innerHTML = `<a href="#" title="Đo khoảng cách (Thước cuộn)" role="button" onclick="toggleMeasureMode(event)">📏</a>`;
+            return container;
+        }
+    });
+    map.addControl(new L.Control.MeasureCustom());
+
+    L.Control.MyLocation = L.Control.extend({
+        options: { position: 'topright' },
+        onAdd: function (map) {
+            var container = L.DomUtil.create('div', 'leaflet-bar leaflet-control leaflet-control-my-location');
+            container.innerHTML = `<a href="#" title="Đến vị trí của tôi" role="button" onclick="goToMyLocation(event)">🎯</a>`;
+            return container;
+        }
+    });
+    map.addControl(new L.Control.MyLocation());
+
+    var userLocationMarker = null;
+    var userLocationCircle = null;
+
+    function goToMyLocation(e) {
+        if(e) { e.preventDefault(); e.stopPropagation(); }
+        if (!navigator.geolocation) { alert("Trình duyệt không hỗ trợ GPS."); return; }
+        var hint = document.getElementById('draw-hint'); hint.style.display = 'block'; hint.innerHTML = "⏳ Đang lấy tọa độ GPS...";
+        navigator.geolocation.getCurrentPosition(
+            function(position) {
+                hint.style.display = 'none'; 
+                var lat = position.coords.latitude, lng = position.coords.longitude, accuracy = position.coords.accuracy;
+                map.flyTo([lat, lng], 18);
+                if (userLocationMarker) map.removeLayer(userLocationMarker);
+                if (userLocationCircle) map.removeLayer(userLocationCircle);
+                userLocationCircle = L.circle([lat, lng], { radius: accuracy, color: '#3b82f6', fillColor: '#3b82f6', fillOpacity: 0.15, weight: 1 }).addTo(map);
+                userLocationMarker = L.circleMarker([lat, lng], { radius: 7, color: 'white', weight: 2, fillColor: '#2563eb', fillOpacity: 1 }).addTo(map).bindPopup("<b>📍 Vị trí hiện tại</b><br>Sai số: ±" + Math.round(accuracy) + " m").openPopup();
+            },
+            function(error) { hint.style.display = 'none'; alert("Lỗi GPS: " + error.message); },
+            { enableHighAccuracy: true, timeout: 15000, maximumAge: 0 } 
+        );
+    }
+
+    var tempMarker = null;
+    function gotoCoords() {
+        var input = document.getElementById('coord-input').value; var parts = input.split(/[ ,;]+/);
+        if (parts.length >= 2) {
+            var lat = parseFloat(parts[0]); var lng = parseFloat(parts[1]);
+            if (!isNaN(lat) && !isNaN(lng)) {
+                map.flyTo([lat, lng], 17);
+                if(tempMarker) map.removeLayer(tempMarker);
+                tempMarker = L.marker([lat, lng]).addTo(map).bindPopup("<b>Tìm kiếm:</b><br>" + lat + ", " + lng).openPopup();
+            } else { alert("Tọa độ không hợp lệ!"); }
+        } else { alert("Hãy nhập định dạng: Vĩ độ, Kinh độ"); }
+    }
+
+    var currentMode = null; var currentTitle = ""; var currentColor = null; var currentDash = null; var currentPolyline = null;
+    let isMeasuring = false; let measureLine = null; let measurePoints = []; let measureTooltip = null;
+
+    function clearMeasure() {
+        if(measureLine) map.removeLayer(measureLine);
+        if(measureTooltip) map.removeLayer(measureTooltip);
+        measureLine = null; measureTooltip = null; measurePoints = [];
+    }
+
+    function toggleMeasureMode(e) {
+        if(e) { e.preventDefault(); e.stopPropagation(); }
+        if (isMeasuring) {
+            isMeasuring = false;
+            let btn = document.querySelector('.leaflet-control-custom-measure a');
+            if(btn) { btn.style.backgroundColor = ''; btn.style.border = ''; }
+            clearMeasure();
+            document.getElementById('map').classList.remove('drawing-mode-active');
+            document.getElementById('draw-hint').style.display = 'none';
+        } else {
+            cancelDrawing(); isMeasuring = true;
+            let btn = document.querySelector('.leaflet-control-custom-measure a');
+            if(btn) { btn.style.backgroundColor = '#e0f2fe'; btn.style.border = '2px solid #0284c7'; }
+            document.getElementById('map').classList.add('drawing-mode-active');
+            var hint = document.getElementById('draw-hint'); hint.style.display = 'block';
+            hint.innerHTML = "📏 <b>Chế độ Đo khoảng cách:</b> Click để đo. <b>Click đúp</b> để kết thúc. Nhấn <b>ESC</b> để xóa.";
+        }
+    }
+
+    function cancelDrawing() {
+        if (currentPolyline) { map.removeLayer(currentPolyline); currentPolyline = null; }
+        currentMode = null;
+        document.querySelectorAll('.tool-btn').forEach(b => b.classList.remove('active'));
+        document.getElementById('draw-hint').style.display = 'none';
+        document.getElementById('map').classList.remove('drawing-mode-active');
+        if(isMeasuring) { toggleMeasureMode(); } 
+    }
+
+    function setMode(btnElement, mode, title, color = null, dashArray = null) {
+        if (currentMode === mode) { cancelDrawing(); return; }
+        currentMode = mode; currentTitle = title; currentColor = color; currentDash = dashArray; 
+        if (currentPolyline) { finalizePolyline(currentPolyline); currentPolyline = null; }
+        if(isMeasuring) { toggleMeasureMode(); } 
+        document.querySelectorAll('.tool-btn').forEach(b => b.classList.remove('active')); btnElement.classList.add('active');
+        
+        var hint = document.getElementById('draw-hint'); hint.style.display = 'block';
+        var escMsg = "<br><span class='hint-esc'>💡 Nhấn ESC hoặc click lại nút để TẮT vẽ</span>";
+        hint.innerHTML = (mode.includes('dz') || mode.includes('cn')) ? 
+            '🖱️ Click từng điểm để vẽ. <b>Click đúp</b> để hoàn thành.' + escMsg : '🖱️ Click vào bản đồ để cắm thiết bị.' + escMsg;
+        document.getElementById('map').classList.add('drawing-mode-active');
+    }
+
+    document.addEventListener('keydown', function(event) { if(event.key === "Escape") { closeGallery(); cancelDrawing(); } });
+
+    function addPointToLine(latlng) {
+        if (!currentPolyline) {
+            let style = { color: currentColor, weight: 4, opacity: 0.9 }; if (currentDash) style.dashArray = currentDash;
+            currentPolyline = L.polyline([latlng], style).addTo(drawnItems);
+            currentPolyline.options.customData = { type: currentMode, title: currentTitle, color: currentColor, dash: currentDash };
+        } else { currentPolyline.addLatLng(latlng); }
+    }
+
+    map.on('click', function(e) {
+        if (isMeasuring) {
+            measurePoints.push(e.latlng);
+            if (measurePoints.length === 1) {
+                measureLine = L.polyline(measurePoints, {color: '#ef4444', weight: 4, dashArray: '5, 8'}).addTo(map);
+                measureTooltip = L.tooltip({permanent: true, direction: 'right', className: 'measure-tooltip'}).setLatLng(e.latlng).addTo(map).setContent('0 m');
+            } else { measureLine.setLatLngs(measurePoints); }
+            return;
+        }
+
+        if (!currentMode) return;
+        if (currentMode === 'tba' || currentMode === 'ctt' || currentMode === 'cht') {
+            createMarker(e.latlng, currentMode, currentTitle);
+        } else { addPointToLine(e.latlng); }
+    });
+
+    map.on('mousemove', function(e) {
+        if (isMeasuring && measurePoints.length > 0) {
+            let tempPoints = [...measurePoints, e.latlng]; measureLine.setLatLngs(tempPoints);
+            let dist = 0; for(let i=0; i<tempPoints.length-1; i++) dist += map.distance(tempPoints[i], tempPoints[i+1]);
+            measureTooltip.setLatLng(e.latlng).setContent(formatDistance(dist));
+        }
+    });
+
+    drawnItems.on('click', function(e) {
+        if (isMeasuring) {
+            measurePoints.push(e.latlng);
+            if (measurePoints.length === 1) {
+                measureLine = L.polyline(measurePoints, {color: '#ef4444', weight: 4, dashArray: '5, 8'}).addTo(map);
+                measureTooltip = L.tooltip({permanent: true, direction: 'right', className: 'measure-tooltip'}).setLatLng(e.latlng).addTo(map).setContent('0 m');
+            } else { measureLine.setLatLngs(measurePoints); }
+            setTimeout(() => { if (e.layer && e.layer.closePopup) e.layer.closePopup(); }, 10);
+            return;
+        }
+        if (currentMode && (currentMode.includes('dz') || currentMode.includes('cn'))) {
+            addPointToLine(e.latlng); setTimeout(() => { if (e.layer && e.layer.closePopup) e.layer.closePopup(); }, 10);
+        }
+    });
+
+    map.on('dblclick', finishDrawing); map.on('contextmenu', finishDrawing);
+    function finishDrawing(e) {
+        if (e) e.originalEvent.preventDefault();
+        if (isMeasuring) { isMeasuring = false; document.getElementById('draw-hint').innerHTML = "📏 Đo xong. Nhấn <b>ESC</b> để xóa."; return; }
+        if (currentPolyline) { finalizePolyline(currentPolyline); currentPolyline = null; }
+    }
+
+    function finalizePolyline(polyLayer) {
+        let latlngs = polyLayer.getLatLngs(); let dist = 0;
+        for(let i=0; i<latlngs.length-1; i++) dist += map.distance(latlngs[i], latlngs[i+1]);
+        if(!polyLayer.options.customData) polyLayer.options.customData = {};
+        polyLayer.options.customData.length = dist; 
+        drawnItems.addLayer(polyLayer); editLayerData(L.stamp(polyLayer), true);
+    }
+
+    map.on('draw:edited', function (e) {
+        e.layers.eachLayer(function (layer) {
+            if (layer instanceof L.Polyline && layer.getLatLngs && (!layer.options.customData || !layer.options.customData.type || layer.options.customData.type.includes('dz') || layer.options.customData.type.includes('cn'))) {
+                let latlngs = layer.getLatLngs(); let dist = 0;
+                if (latlngs.length > 0 && !Array.isArray(latlngs[0])) {
+                    for(let i=0; i<latlngs.length-1; i++) dist += map.distance(latlngs[i], latlngs[i+1]);
+                    if(!layer.options.customData) layer.options.customData = {};
+                    layer.options.customData.length = dist; 
+                }
+            }
+            updatePopupContent(layer);
+        });
+    });
+
+    function getCustomIcon(type, labelText) {
+        let iconClass = 'map-icon-' + type; let displayLabel = (labelText && labelText !== 'Thiết bị' && labelText !== 'Trạm/Cột mới') ? labelText : '';
+        let html = `<div class="${iconClass}"></div><div class="marker-label">${displayLabel}</div>`;
+        return L.divIcon({ html: html, className: 'custom-labeled-icon', iconSize: [24, 24], iconAnchor: [12, 12] });
+    }
+
+    function generateId() { return 'LK-' + Math.random().toString(36).substring(2, 8).toUpperCase(); }
+
+    function createMarker(latlng, type, title) {
+        let marker = L.marker(latlng, { icon: getCustomIcon(type, '') }).addTo(drawnItems);
+        marker.options.customData = { type: type, title: title }; 
+        marker.options.metadata = { name: '', info: '', tram: '', img: '', maLienKet: generateId() };
+        editLayerData(L.stamp(marker), true);
+    }
+
+    map.on('popupopen', function(e) {
+        var layer = e.popup._source;
+        if (layer && layer instanceof L.Polyline && layer.getLatLngs && !(layer instanceof L.Polygon)) { 
+            layer.setStyle({ weight: 10, opacity: 1, className: 'highlighted-line' }); if (layer.bringToFront) layer.bringToFront();
+        }
+    });
+
+    map.on('popupclose', function(e) {
+        var layer = e.popup._source;
+        if (layer && layer instanceof L.Polyline && layer.getLatLngs && map.hasLayer(layer) && !(layer instanceof L.Polygon)) {
+            let custom = layer.options.customData || {}; layer.setStyle({ weight: 4, opacity: 0.9, color: custom.color || '#3388ff', dashArray: custom.dash || null, className: '' });
+        }
+    });
+
+    function fixGoogleDriveLink(url) {
+        var match = url.trim().match(/\/file\/d\/([a-zA-Z0-9_-]+)/);
+        return match ? `https://drive.google.com/uc?export=view&id=${match[1]}` : url.trim(); 
+    }
+
+    window.editLayerData = function(layerId, isNew = false) {
+        var layer = drawnItems.getLayer(layerId); if(!layer) return;
+        var meta = layer.options.metadata || {}; var custom = layer.options.customData || {};
+        
+        meta.name = meta.name || ''; meta.info = meta.info || ''; 
+        meta.tram = meta.tram || ''; meta.img = meta.img || ''; 
+        if(!meta.maLienKet) meta.maLienKet = generateId(); 
+
+        var form = `
+            <div class="popup-form">
+                <h3>${isNew ? `Thêm Mới: ${custom.title || ''}` : `Sửa Thông Tin`}</h3>
+                <input type="text" id="p-name-${layerId}" value="${meta.name}" placeholder="Tên thiết bị (hiện dưới icon)">
+                <input type="text" id="p-info-${layerId}" value="${meta.info}" placeholder="Chức năng / Thông số kỹ thuật">
+                <input type="text" id="p-tram-${layerId}" value="${meta.tram}" placeholder="Thuộc trạm (VD: Trạm Thôn Vinh)">
+                <input type="text" id="p-img-${layerId}" value="${meta.img}" placeholder="Dán Link Ảnh / Link Drive">
+                <input type="text" id="p-ma-${layerId}" value="${meta.maLienKet}" placeholder="Mã LK (Tự sinh)" style="background:#f8fafc; font-size:12px; color:#64748b;" readonly title="Mã liên kết tự động sinh ra">
+                <button class="btn-save" onclick="saveEditData(${layerId})">💾 Lưu Thông Tin</button>
+            </div>`;
+        if(isNew) layer.bindPopup(form).openPopup(); else layer.setPopupContent(form);
+    };
+
+    window.saveEditData = function(layerId) {
+        var layer = drawnItems.getLayer(layerId); if(!layer) return;
+        let newName = document.getElementById(`p-name-${layerId}`).value || 'Thiết bị';
+        layer.options.metadata = { 
+            name: newName, 
+            info: document.getElementById(`p-info-${layerId}`).value || '', 
+            tram: document.getElementById(`p-tram-${layerId}`).value || '',
+            img: document.getElementById(`p-img-${layerId}`).value || '',
+            maLienKet: document.getElementById(`p-ma-${layerId}`).value || ''
+        };
+        if (layer instanceof L.Marker && layer.options.customData && layer.options.customData.type) { layer.setIcon(getCustomIcon(layer.options.customData.type, newName)); }
+        updatePopupContent(layer);
+    };
+
+    window.deleteLayerQuick = function(layerId) { if(confirm("Xóa đối tượng này khỏi bản đồ?")) { var layer = drawnItems.getLayer(layerId); if(layer) drawnItems.removeLayer(layer); } };
+
+    function updatePopupContent(layer) {
+        var meta = layer.options.metadata; var custom = layer.options.customData || {}; var layerId = L.stamp(layer);
+        var content = `<div class="popup-form"><h3>${custom.title || ''} - ${meta.name}</h3>`;
+        
+        if (custom.length !== undefined) {
+            content += `<div style="background:#e0f2fe; color:#0369a1; padding:6px; border-radius:4px; font-size:13px; font-weight:bold; margin-bottom:8px; text-align:center; border: 1px dashed #0284c7;">📏 Chiều dài dây: ${formatDistance(custom.length)}</div>`;
+        }
+
+        if (meta.info) content += `<p style="margin:5px 0;"><b>Thông số:</b> ${meta.info}</p>`;
+        if (meta.maLienKet) content += `<p style="margin:5px 0; font-size:12px; color:#475569;"><b>🔗 Mã LK:</b> ${meta.maLienKet}</p>`;
+        if (meta.tram) content += `<p style="margin:5px 0;"><b>🏢 Trạm:</b> <span style="color:#b45309; font-weight:bold;">${meta.tram}</span></p>`;
+
+        var imgStr = meta.img ? meta.img.toString().trim() : '';
+        if (imgStr.includes('drive.google.com') && imgStr.includes('/folders/')) {
+            content += `<a href="${imgStr}" target="_blank" class="btn-folder">📂 Mở thư mục ảnh (Google Drive)</a>`;
+        } else {
+            var imgArr = imgStr.split(',').map(s => fixGoogleDriveLink(s)).filter(s => s);
+            if(imgArr.length > 0) {
+                var safeArr = encodeURIComponent(JSON.stringify(imgArr));
+                content += `<img src="${imgArr[0]}" class="popup-img" title="Click để xem" onclick="openGallery('${safeArr}')" onerror="this.style.display='none'">`;
+                if(imgArr.length > 1) { content += `<div class="img-count-badge">📷 Có ${imgArr.length} ảnh. Click vào ảnh để xem toàn bộ.</div>`; }
+            }
+        }
+        content += `<div class="action-btns"><button class="btn-edit" onclick="editLayerData(${layerId})">✏️ Sửa</button><button class="btn-delete" onclick="deleteLayerQuick(${layerId})">🗑️ Xóa</button></div></div>`;
+        layer.bindPopup(content); if(layer.isPopupOpen()) layer.setPopupContent(content);
+    }
+
+    window.openGallery = function(safeArrStr) {
+        var arr = JSON.parse(decodeURIComponent(safeArrStr)); document.getElementById('gallery-modal').classList.add('show');
+        var mainImg = document.getElementById('main-gallery-img'); var strip = document.getElementById('thumb-strip'); strip.innerHTML = '';
+        arr.forEach((src, idx) => {
+            let img = document.createElement('img'); img.src = src; img.className = 'thumb-img' + (idx === 0 ? ' active' : '');
+            img.onclick = function() { mainImg.src = src; document.querySelectorAll('.thumb-img').forEach(t => t.classList.remove('active')); img.classList.add('active'); };
+            strip.appendChild(img);
+        }); mainImg.src = arr[0];
+    };
+    window.closeGallery = function() { document.getElementById('gallery-modal').classList.remove('show'); document.getElementById('main-gallery-img').src = ''; };
+
+    // ==========================================
+    // NHẬP XUẤT EXCEL & JSON
+    // ==========================================
+    function parseCoordStr(str) {
+        if (!str) return null; let s = str.toString().replace(/,/g, '.').trim(); let val = parseFloat(s); if (isNaN(val)) return null;
+        if (val > 1000) { let sNum = val.toString().replace('.', ''); if (sNum.startsWith('10')) return parseFloat(sNum.substring(0, 3) + '.' + sNum.substring(3)); else return parseFloat(sNum.substring(0, 2) + '.' + sNum.substring(2)); }
+        return val;
+    }
+
+    function importFromExcel(event) {
+        let file = event.target.files[0]; if (!file) return; let reader = new FileReader();
+        reader.onload = function(e) {
+            let data = new Uint8Array(e.target.result); let workbook = XLSX.read(data, {type: 'array'});
+            let json = XLSX.utils.sheet_to_json(workbook.Sheets[workbook.SheetNames[0]]); let count = 0;
+            json.forEach(row => {
+                let getVal = (kws) => { let key = Object.keys(row).find(k => kws.some(kw => k.toLowerCase().includes(kw))); return key ? row[key] : null; };
+                
+                let ten = getVal(['tên', 'name']) || ''; 
+                let rawLat = getVal(['lat', 'vĩ', 'y']); 
+                let rawLong = getVal(['long', 'lng', 'kinh', 'x']); 
+                let chucNang = getVal(['chức', 'loại', 'type']) || ''; 
+                let dAnh = getVal(['ảnh', 'image', 'img', 'link', 'hinh']) || '';
+                
+                let maLienKet = getVal(['mã', 'ma', 'liên kết', 'id']) || generateId(); 
+                let tenTram = getVal(['trạm', 'tram', 'station']) || '';
+
+                if (rawLong && rawLat) {
+                    let c1 = parseCoordStr(rawLong); let c2 = parseCoordStr(rawLat);
+                    let realLat = (c1 > 10 && c1 < 25) ? c1 : ((c2 > 10 && c2 < 25) ? c2 : null);
+                    let realLng = (c1 > 100 && c1 < 110) ? c1 : ((c2 > 100 && c2 < 110) ? c2 : null);
+
+                    if (realLat && realLng) {
+                        let type = 'ctt'; let title = 'Cột trung thế'; let cLow = chucNang.toString().toLowerCase();
+                        if (cLow.includes('trạm') || cLow.includes('tba')) { type = 'tba'; title = 'Trạm biến áp'; } else if (cLow.includes('hạ')) { type = 'cht'; title = 'Cột hạ thế'; }
+                        
+                        let marker = L.marker([realLat, realLng], { icon: getCustomIcon(type, ten) }).addTo(drawnItems);
+                        marker.options.customData = { type: type, title: title }; 
+                        marker.options.metadata = { name: ten || 'Trạm/Cột mới', info: chucNang, img: dAnh, tram: tenTram, maLienKet: maLienKet };
+                        updatePopupContent(marker); count++;
+                    }
+                }
+            });
+            alert(`✅ Đã nạp thành công ${count} thiết bị từ file Excel!\nMã liên kết đã được tự động cấp cho các thiết bị.`);
+            if (drawnItems.getLayers().length > 0) map.fitBounds(drawnItems.getBounds(), {padding: [50, 50]});
+        };
+        reader.readAsArrayBuffer(file); event.target.value = ''; 
+    }
+
+    function exportToExcel() {
+        if (drawnItems.getLayers().length === 0) { alert("Bản đồ chưa có dữ liệu để xuất!"); return; }
+        let excelData = [];
+        drawnItems.eachLayer(function(layer) {
+            let meta = layer.options.metadata || {}; let custom = layer.options.customData || {};
+            let lat = '', lng = '';
+            if (layer instanceof L.Marker) {
+                lat = layer.getLatLng().lat.toFixed(6); lng = layer.getLatLng().lng.toFixed(6);
+            } else if (layer instanceof L.Polyline && layer.getLatLngs) {
+                let pts = layer.getLatLngs();
+                if(pts.length > 0 && !Array.isArray(pts[0])) { lat = pts[0].lat.toFixed(6); lng = pts[0].lng.toFixed(6); } 
+                else if (pts.length > 0 && Array.isArray(pts[0]) && pts[0].length > 0) { lat = pts[0][0].lat.toFixed(6); lng = pts[0][0].lng.toFixed(6); }
+            }
+
+            excelData.push({
+                "Tên": meta.name || '',
+                "Vĩ độ (Lat)": lat,
+                "Kinh độ (Long)": lng,
+                "Chức năng (Loại)": meta.info || custom.title || '',
+                "Link ảnh": meta.img || '',
+                "Mã liên kết": meta.maLienKet || '',
+                "Trạm": meta.tram || ''
+            });
+        });
+
+        try {
+            let ws = XLSX.utils.json_to_sheet(excelData);
+            let wb = XLSX.utils.book_new();
+            XLSX.utils.book_append_sheet(wb, ws, "DanhSachThietBi");
+            XLSX.writeFile(wb, "Xuat_DuLieu_DienLuc.xlsx");
+        } catch(err) { alert("Có lỗi khi xuất file Excel: " + err.message); }
+    }
+
+    function exportData() {
+        try {
+            var data = drawnItems.toGeoJSON(); var i = 0;
+            drawnItems.eachLayer(function(layer) { if(data.features[i]) { data.features[i].properties = { metadata: layer.options.metadata, customData: layer.options.customData }; } i++; });
+            var blob = new Blob([JSON.stringify(data, null, 2)], {type: "application/json"});
+            var a = document.createElement('a'); a.href = URL.createObjectURL(blob); a.download = "luoidien.json"; 
+            document.body.appendChild(a); a.click(); document.body.removeChild(a);
+        } catch(err) { alert("Lỗi xuất file JSON: " + err.message); }
+    }
+
+    function importData(event) {
+        var file = event.target.files[0]; if(!file) return; var reader = new FileReader();
+        reader.onload = function(){
+            try {
+                var data = JSON.parse(reader.result); drawnItems.clearLayers();
+                L.geoJSON(data, {
+                    pointToLayer: function(feature, latlng) {
+                        let custom = feature.properties.customData || {}; let type = custom.type || 'tba'; let meta = feature.properties.metadata || {}; return L.marker(latlng, { icon: getCustomIcon(type, meta.name || '') });
+                    },
+                    style: function(feature) {
+                        let custom = feature.properties.customData || {}; let style = { weight: 4, color: custom.color || '#3388ff' };
+                        if(custom.dash) style.dashArray = custom.dash; return style;
+                    },
+                    onEachFeature: function (feature, layer) {
+                        layer.options.metadata = feature.properties.metadata || {}; 
+                        layer.options.customData = feature.properties.customData || { type: 'tba', title: 'Thiết bị cũ' };
+                        if(!layer.options.metadata.maLienKet) layer.options.metadata.maLienKet = generateId();
+
+                        if (layer instanceof L.Polyline && (!layer.options.customData.length)) {
+                            let latlngs = layer.getLatLngs(); let dist = 0;
+                            if (latlngs.length > 0 && !Array.isArray(latlngs[0])) { for(let i=0; i<latlngs.length-1; i++) dist += map.distance(latlngs[i], latlngs[i+1]); layer.options.customData.length = dist; }
+                        }
+                        drawnItems.addLayer(layer); updatePopupContent(layer); 
+                    }
+                });
+                if (drawnItems.getLayers().length > 0) map.fitBounds(drawnItems.getBounds(), {padding: [50, 50]});
+            } catch(err) { alert("Lỗi đọc file JSON. " + err.message); }
+        }; reader.readAsText(file); event.target.value = '';
+    }
+</script>
+</body>
+</html>
