@@ -227,7 +227,7 @@
     var userLocationMarker = null;
     var userLocationCircle = null;
 
-    // HÀM TẠO NHANH THIẾT BỊ TẠI ĐIỂM GPS
+    // Hàm gắn nhanh thiết bị ở tọa độ GPS
     window.createMarkerAtGPS = function(lat, lng, type, title) {
         if (userLocationMarker) userLocationMarker.closePopup();
         createMarker([lat, lng], type, title);
@@ -245,11 +245,11 @@
                 if (userLocationMarker) map.removeLayer(userLocationMarker);
                 if (userLocationCircle) map.removeLayer(userLocationCircle);
                 
-                // CẬP NHẬT: interactive: false để vòng tròn không che mất thao tác vẽ của chuột
+                // Vòng tròn định vị (interactive: false để không cản chuột bấm vẽ)
                 userLocationCircle = L.circle([lat, lng], { radius: accuracy, color: '#3b82f6', fillColor: '#3b82f6', fillOpacity: 0.15, weight: 1, interactive: false }).addTo(map);
                 userLocationMarker = L.circleMarker([lat, lng], { radius: 7, color: 'white', weight: 2, fillColor: '#2563eb', fillOpacity: 1 }).addTo(map);
 
-                // CẬP NHẬT: Thêm 3 nút bấm Cắm cột nhanh trực tiếp vào Popup
+                // Thêm bảng nút Cắm nhanh thiết bị
                 let popupContent = `
                     <div style="text-align:center; min-width: 160px;">
                         <b style="font-size:14px;">📍 Vị trí của bạn</b><br>
@@ -265,7 +265,7 @@
                 `;
                 userLocationMarker.bindPopup(popupContent).openPopup();
 
-                // CẬP NHẬT: Chuyển tiếp click nếu người dùng đang dùng nút cắm trên thanh Menu
+                // Lắng nghe sự kiện click nếu người dùng đang dùng chế độ cắm cột bên trái
                 userLocationMarker.on('click', function(e) {
                     if (isMeasuring) {
                         measurePoints.push(e.latlng);
@@ -419,6 +419,7 @@
         autoSaveToCloud(); 
     }
 
+    // BẮT SỰ KIỆN KHI CHỈNH SỬA
     map.on('draw:edited', function (e) {
         e.layers.eachLayer(function (layer) {
             if (layer instanceof L.Polyline && layer.getLatLngs && (!layer.options.customData || !layer.options.customData.type || layer.options.customData.type.includes('dz') || layer.options.customData.type.includes('cn'))) {
@@ -431,6 +432,11 @@
             }
             updatePopupContent(layer);
         });
+        autoSaveToCloud(); 
+    });
+
+    // BẮT SỰ KIỆN KHI XÓA BẰNG THÙNG RÁC (TRÊN THANH CÔNG CỤ CỦA BẢN ĐỒ)
+    map.on('draw:deleted', function (e) {
         autoSaveToCloud(); 
     });
 
@@ -505,11 +511,15 @@
         autoSaveToCloud(); 
     };
 
+    // BẮT SỰ KIỆN KHI XÓA BẰNG NÚT XÓA Ở TRONG POPUP THÔNG TIN CỘT
     window.deleteLayerQuick = function(layerId) { 
         if(confirm("Xóa đối tượng này khỏi bản đồ?")) { 
             var layer = drawnItems.getLayer(layerId); 
-            if(layer) drawnItems.removeLayer(layer); 
-            autoSaveToCloud(); 
+            if(layer) {
+                map.closePopup(); // Đóng popup đang mở
+                drawnItems.removeLayer(layer); // Xóa khỏi bản đồ
+                autoSaveToCloud(); // Đẩy lệnh lưu lên mây
+            }
         } 
     };
 
