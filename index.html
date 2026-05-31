@@ -165,7 +165,7 @@
     </div>
 
     <div class="footer">
-        <button class="btn-system" style="background:#0284c7" onclick="autoLoadFromCloud()">🔄 Tải lại dữ liệu từ Đám mây</button>
+        <button class="btn-system" style="background:#0284c7" onclick="autoLoadFromCloud()">🔄 Tải lại dữ liệu (Firebase)</button>
         <button class="btn-system" style="background:#10b981" onclick="document.getElementById('import-file').click()">📂 Nạp file Json cũ lên Mây</button>
         <input type="file" id="import-file" style="display:none" accept=".json" onchange="importData(event)">
     </div>
@@ -227,7 +227,6 @@
     var userLocationMarker = null;
     var userLocationCircle = null;
 
-    // Hàm gắn nhanh thiết bị ở tọa độ GPS
     window.createMarkerAtGPS = function(lat, lng, type, title) {
         if (userLocationMarker) userLocationMarker.closePopup();
         createMarker([lat, lng], type, title);
@@ -245,11 +244,9 @@
                 if (userLocationMarker) map.removeLayer(userLocationMarker);
                 if (userLocationCircle) map.removeLayer(userLocationCircle);
                 
-                // Vòng tròn định vị (interactive: false để không cản chuột bấm vẽ)
                 userLocationCircle = L.circle([lat, lng], { radius: accuracy, color: '#3b82f6', fillColor: '#3b82f6', fillOpacity: 0.15, weight: 1, interactive: false }).addTo(map);
                 userLocationMarker = L.circleMarker([lat, lng], { radius: 7, color: 'white', weight: 2, fillColor: '#2563eb', fillOpacity: 1 }).addTo(map);
 
-                // Thêm bảng nút Cắm nhanh thiết bị
                 let popupContent = `
                     <div style="text-align:center; min-width: 160px;">
                         <b style="font-size:14px;">📍 Vị trí của bạn</b><br>
@@ -265,7 +262,6 @@
                 `;
                 userLocationMarker.bindPopup(popupContent).openPopup();
 
-                // Lắng nghe sự kiện click nếu người dùng đang dùng chế độ cắm cột bên trái
                 userLocationMarker.on('click', function(e) {
                     if (isMeasuring) {
                         measurePoints.push(e.latlng);
@@ -419,7 +415,6 @@
         autoSaveToCloud(); 
     }
 
-    // BẮT SỰ KIỆN KHI CHỈNH SỬA
     map.on('draw:edited', function (e) {
         e.layers.eachLayer(function (layer) {
             if (layer instanceof L.Polyline && layer.getLatLngs && (!layer.options.customData || !layer.options.customData.type || layer.options.customData.type.includes('dz') || layer.options.customData.type.includes('cn'))) {
@@ -435,7 +430,6 @@
         autoSaveToCloud(); 
     });
 
-    // BẮT SỰ KIỆN KHI XÓA BẰNG THÙNG RÁC (TRÊN THANH CÔNG CỤ CỦA BẢN ĐỒ)
     map.on('draw:deleted', function (e) {
         autoSaveToCloud(); 
     });
@@ -511,14 +505,13 @@
         autoSaveToCloud(); 
     };
 
-    // BẮT SỰ KIỆN KHI XÓA BẰNG NÚT XÓA Ở TRONG POPUP THÔNG TIN CỘT
     window.deleteLayerQuick = function(layerId) { 
         if(confirm("Xóa đối tượng này khỏi bản đồ?")) { 
             var layer = drawnItems.getLayer(layerId); 
             if(layer) {
-                map.closePopup(); // Đóng popup đang mở
-                drawnItems.removeLayer(layer); // Xóa khỏi bản đồ
-                autoSaveToCloud(); // Đẩy lệnh lưu lên mây
+                map.closePopup(); 
+                drawnItems.removeLayer(layer); 
+                autoSaveToCloud(); 
             }
         } 
     };
@@ -562,25 +555,26 @@
     window.closeGallery = function() { document.getElementById('gallery-modal').classList.remove('show'); document.getElementById('main-gallery-img').src = ''; };
 
     // ==========================================
-    // TỰ ĐỘNG ĐỒNG BỘ ĐÁM MÂY (JSONBIN.IO)
+    // TÍCH HỢP GOOGLE FIREBASE REALTIME DATABASE
     // ==========================================
-    const BIN_ID = '6a1c58c521f9ee59d2a18f67'; 
-    const API_KEY = '$2a$10$QTQ5oglOmLBqzdWsoEkTKO0vRQ1pBluexrZ654nhIto.pulmXUPi.';
+    const FIREBASE_URL = 'https://luoi-dien-van-ban-default-rtdb.asia-southeast1.firebasedatabase.app/dulieu.json';
 
     function autoLoadFromCloud() {
+        if (FIREBASE_URL.includes("DÁN-LINK")) {
+            console.log("Bạn chưa cấu hình link Firebase."); return;
+        }
+
         var hint = document.getElementById('draw-hint');
-        hint.style.display = 'block'; hint.innerHTML = "⏳ Đang tải dữ liệu lưới điện từ Đám mây...";
+        hint.style.display = 'block'; hint.innerHTML = "⏳ Đang tải dữ liệu lưới điện từ Firebase...";
         
-        fetch(`https://api.jsonbin.io/v3/b/${BIN_ID}/latest`, {
-            headers: { 'X-Master-Key': API_KEY }
-        })
+        fetch(FIREBASE_URL)
         .then(response => response.json())
         .then(res => {
             hint.style.display = 'none';
-            if (!res.record || !res.record.features) return; 
+            if (!res || !res.features) return; 
             
             drawnItems.clearLayers();
-            L.geoJSON(res.record, {
+            L.geoJSON(res, {
                 pointToLayer: function(feature, latlng) {
                     let custom = feature.properties.customData || {}; let type = custom.type || 'tba'; let meta = feature.properties.metadata || {}; return L.marker(latlng, { icon: getCustomIcon(type, meta.name || '') });
                 },
@@ -599,36 +593,44 @@
         })
         .catch(err => {
             hint.style.display = 'none';
-            console.error("Lỗi tải dữ liệu:", err);
+            console.error("Lỗi tải dữ liệu Firebase:", err);
         });
     }
 
-    function autoSaveToCloud() {
+    function autoSaveToCloud(showSuccessAlert = false, customMsg = "") {
+        if (FIREBASE_URL.includes("DÁN-LINK")) return; 
+
         var hint = document.getElementById('draw-hint');
-        hint.style.display = 'block'; hint.innerHTML = "💾 Đang đồng bộ dữ liệu lên Đám mây...";
+        hint.style.display = 'block'; hint.innerHTML = "💾 Đang đồng bộ lên Firebase...";
 
         var data = drawnItems.toGeoJSON(); 
         var i = 0;
         drawnItems.eachLayer(function(layer) { 
-            if(data.features[i]) { data.features[i].properties = { metadata: layer.options.metadata, customData: layer.options.customData }; } i++; 
+            if(data.features[i]) { 
+                data.features[i].properties = { metadata: layer.options.metadata, customData: layer.options.customData }; 
+            } 
+            i++; 
         });
 
-        fetch(`https://api.jsonbin.io/v3/b/${BIN_ID}`, {
+        fetch(FIREBASE_URL, {
             method: 'PUT',
             headers: {
-                'Content-Type': 'application/json',
-                'X-Master-Key': API_KEY
+                'Content-Type': 'application/json'
             },
             body: JSON.stringify(data)
         })
-        .then(response => response.json())
-        .then(data => {
+        .then(response => {
+            if (!response.ok) throw new Error('Lỗi từ Firebase Database');
+            return response.json();
+        })
+        .then(res => {
             hint.style.display = 'none';
+            if (showSuccessAlert) alert("✅ " + (customMsg || "Đã đồng bộ thành công!"));
         })
         .catch(err => {
             hint.style.display = 'none';
             console.error("Lỗi lưu dữ liệu:", err);
-            alert("Lỗi đồng bộ! Các thao tác vừa rồi chưa được lưu lên mạng.");
+            alert("❌ Lỗi đồng bộ máy chủ Firebase!\nKiểm tra lại kết nối mạng của bạn.");
         });
     }
 
@@ -676,9 +678,8 @@
                     }
                 }
             });
-            alert(`✅ Đã nạp thành công ${count} thiết bị từ file Excel!\nMã liên kết đã được tự động cấp cho các thiết bị.`);
             if (drawnItems.getLayers().length > 0) map.fitBounds(drawnItems.getBounds(), {padding: [50, 50]});
-            autoSaveToCloud(); 
+            autoSaveToCloud(true, `Đã nạp thành công ${count} thiết bị từ Excel và đồng bộ lên Firebase!`);
         };
         reader.readAsArrayBuffer(file); event.target.value = ''; 
     }
@@ -755,9 +756,7 @@
                 });
                 if (drawnItems.getLayers().length > 0) map.fitBounds(drawnItems.getBounds(), {padding: [50, 50]});
                 
-                autoSaveToCloud(); 
-                hint.style.display = 'none';
-                alert("✅ Đã nạp file Json cũ và đồng bộ thành công lên mây!");
+                autoSaveToCloud(true, "Đã nạp file Json cũ và đồng bộ thành công lên Firebase!");
             } catch(err) { 
                 hint.style.display = 'none';
                 alert("Lỗi đọc file JSON: File của bạn bị hỏng cấu trúc. " + err.message); 
