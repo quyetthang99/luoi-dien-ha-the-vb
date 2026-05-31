@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>GIS Lưới Điện Chuyên Nghiệp - Lào Cai</title>
+    <title>GIS Hạ Thế Văn Bàn</title>
     <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/leaflet.draw/1.0.4/leaflet.draw.css" />
     <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
@@ -165,9 +165,7 @@
     </div>
 
     <div class="footer">
-        <button class="btn-system" style="background:#0284c7" onclick="autoLoadFromCloud()">🔄 Tải lại dữ liệu (Firebase)</button>
-        <button class="btn-system" style="background:#10b981" onclick="document.getElementById('import-file').click()">📂 Nạp file Json cũ lên Mây</button>
-        <input type="file" id="import-file" style="display:none" accept=".json" onchange="importData(event)">
+        <button class="btn-system" style="background:#0284c7" onclick="autoLoadFromCloud()">🔄 Làm mới bản đồ</button>
     </div>
 </div>
 
@@ -637,7 +635,7 @@
     window.onload = autoLoadFromCloud;
 
     // ==========================================
-    // NHẬP XUẤT EXCEL & JSON
+    // NHẬP XUẤT EXCEL 
     // ==========================================
     function parseCoordStr(str) {
         if (!str) return null; let s = str.toString().replace(/,/g, '.').trim(); let val = parseFloat(s); if (isNaN(val)) return null;
@@ -727,42 +725,6 @@
         } catch(err) { 
             alert("Có lỗi khi xuất file Excel: " + err.message); 
         }
-    }
-
-    function importData(event) {
-        var file = event.target.files[0]; if(!file) return; 
-        var reader = new FileReader();
-        var hint = document.getElementById('draw-hint');
-        hint.style.display = 'block'; hint.innerHTML = "⏳ Đang đọc file và đẩy lên đám mây...";
-
-        reader.onload = function(){
-            try {
-                var data = JSON.parse(reader.result); 
-                drawnItems.clearLayers();
-                L.geoJSON(data, {
-                    pointToLayer: function(feature, latlng) {
-                        let custom = feature.properties.customData || {}; let type = custom.type || 'tba'; let meta = feature.properties.metadata || {}; return L.marker(latlng, { icon: getCustomIcon(type, meta.name || '') });
-                    },
-                    style: function(feature) {
-                        let custom = feature.properties.customData || {}; let style = { weight: 4, color: custom.color || '#3388ff' };
-                        if(custom.dash) style.dashArray = custom.dash; return style;
-                    },
-                    onEachFeature: function (feature, layer) {
-                        layer.options.metadata = feature.properties.metadata || {}; 
-                        layer.options.customData = feature.properties.customData || { type: 'tba', title: 'Thiết bị cũ' };
-                        if(!layer.options.metadata.maLienKet) layer.options.metadata.maLienKet = generateId();
-                        drawnItems.addLayer(layer); updatePopupContent(layer); 
-                    }
-                });
-                if (drawnItems.getLayers().length > 0) map.fitBounds(drawnItems.getBounds(), {padding: [50, 50]});
-                
-                autoSaveToCloud(true, "Đã nạp file Json cũ và đồng bộ thành công lên Firebase!");
-            } catch(err) { 
-                hint.style.display = 'none';
-                alert("Lỗi đọc file JSON: File của bạn bị hỏng cấu trúc. " + err.message); 
-            }
-        }; 
-        reader.readAsText(file); event.target.value = '';
     }
 </script>
 </body>
