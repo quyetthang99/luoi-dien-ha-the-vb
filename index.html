@@ -165,9 +165,8 @@
     </div>
 
     <div class="footer">
-        <button class="btn-system" style="background:#0284c7" onclick="exportData()">💾 Tải file Json bản đồ</button>
-        <button class="btn-system" style="background:#10b981" onclick="document.getElementById('import-file').click()">📂 Nạp file Json cũ</button>
-        <input type="file" id="import-file" style="display:none" onchange="importData(event)">
+        <button class="btn-system" style="background:#0284c7" onclick="autoLoadFromCloud()">🔄 Tải lại dữ liệu từ Đám mây</button>
+        <button class="btn-system" style="background:#10b981" onclick="autoSaveToCloud()">💾 Lưu thủ công (Backup)</button>
     </div>
 </div>
 
@@ -372,6 +371,7 @@
         if(!polyLayer.options.customData) polyLayer.options.customData = {};
         polyLayer.options.customData.length = dist; 
         drawnItems.addLayer(polyLayer); editLayerData(L.stamp(polyLayer), true);
+        autoSaveToCloud(); // Lưu tự động
     }
 
     map.on('draw:edited', function (e) {
@@ -386,6 +386,7 @@
             }
             updatePopupContent(layer);
         });
+        autoSaveToCloud(); // Lưu tự động
     });
 
     function getCustomIcon(type, labelText) {
@@ -401,6 +402,7 @@
         marker.options.customData = { type: type, title: title }; 
         marker.options.metadata = { name: '', info: '', tram: '', img: '', maLienKet: generateId() };
         editLayerData(L.stamp(marker), true);
+        autoSaveToCloud(); // Lưu tự động
     }
 
     map.on('popupopen', function(e) {
@@ -455,9 +457,16 @@
         };
         if (layer instanceof L.Marker && layer.options.customData && layer.options.customData.type) { layer.setIcon(getCustomIcon(layer.options.customData.type, newName)); }
         updatePopupContent(layer);
+        autoSaveToCloud(); // Lưu tự động
     };
 
-    window.deleteLayerQuick = function(layerId) { if(confirm("Xóa đối tượng này khỏi bản đồ?")) { var layer = drawnItems.getLayer(layerId); if(layer) drawnItems.removeLayer(layer); } };
+    window.deleteLayerQuick = function(layerId) { 
+        if(confirm("Xóa đối tượng này khỏi bản đồ?")) { 
+            var layer = drawnItems.getLayer(layerId); 
+            if(layer) drawnItems.removeLayer(layer); 
+            autoSaveToCloud(); // Lưu tự động
+        } 
+    };
 
     function updatePopupContent(layer) {
         var meta = layer.options.metadata; var custom = layer.options.customData || {}; var layerId = L.stamp(layer);
@@ -498,7 +507,83 @@
     window.closeGallery = function() { document.getElementById('gallery-modal').classList.remove('show'); document.getElementById('main-gallery-img').src = ''; };
 
     // ==========================================
-    // NHẬP XUẤT EXCEL & JSON
+    // TỰ ĐỘNG ĐỒNG BỘ ĐÁM MÂY (JSONBIN.IO)
+    // ==========================================
+    const BIN_ID = '6a1c58c521f9ee59d2a18f67'; 
+    const API_KEY = '$2a$10$QTQ5oglOmLBqzdWsoEkTKO0vRQ1pBluexrZ654nhIto.pulmXUPi.';
+
+    // 1. Tự động tải dữ liệu khi mở web
+    function autoLoadFromCloud() {
+        var hint = document.getElementById('draw-hint');
+        hint.style.display = 'block'; hint.innerHTML = "⏳ Đang tải dữ liệu lưới điện từ Đám mây...";
+        
+        fetch(`https://api.jsonbin.io/v3/b/${BIN_ID}/latest`, {
+            headers: { 'X-Master-Key': API_KEY }
+        })
+        .then(response => response.json())
+        .then(res => {
+            hint.style.display = 'none';
+            if (!res.record || !res.record.features) return; // Bỏ qua nếu dữ liệu rỗng
+            
+            drawnItems.clearLayers();
+            L.geoJSON(res.record, {
+                pointToLayer: function(feature, latlng) {
+                    let custom = feature.properties.customData || {}; let type = custom.type || 'tba'; let meta = feature.properties.metadata || {}; return L.marker(latlng, { icon: getCustomIcon(type, meta.name || '') });
+                },
+                style: function(feature) {
+                    let custom = feature.properties.customData || {}; let style = { weight: 4, color: custom.color || '#3388ff' };
+                    if(custom.dash) style.dashArray = custom.dash; return style;
+                },
+                onEachFeature: function (feature, layer) {
+                    layer.options.metadata = feature.properties.metadata || {}; 
+                    layer.options.customData = feature.properties.customData || { type: 'tba', title: 'Thiết bị cũ' };
+                    if(!layer.options.metadata.maLienKet) layer.options.metadata.maLienKet = generateId();
+                    drawnItems.addLayer(layer); updatePopupContent(layer); 
+                }
+            });
+            if (drawnItems.getLayers().length > 0) map.fitBounds(drawnItems.getBounds(), {padding: [50, 50]});
+        })
+        .catch(err => {
+            hint.style.display = 'none';
+            console.error("Lỗi tải dữ liệu:", err);
+        });
+    }
+
+    // 2. Tự động lưu dữ liệu lên đám mây
+    function autoSaveToCloud() {
+        var hint = document.getElementById('draw-hint');
+        hint.style.display = 'block'; hint.innerHTML = "💾 Đang đồng bộ dữ liệu lên Đám mây...";
+
+        var data = drawnItems.toGeoJSON(); 
+        var i = 0;
+        drawnItems.eachLayer(function(layer) { 
+            if(data.features[i]) { data.features[i].properties = { metadata: layer.options.metadata, customData: layer.options.customData }; } i++; 
+        });
+
+        fetch(`https://api.jsonbin.io/v3/b/${BIN_ID}`, {
+            method: 'PUT',
+            headers: {
+                'Content-Type': 'application/json',
+                'X-Master-Key': API_KEY
+            },
+            body: JSON.stringify(data)
+        })
+        .then(response => response.json())
+        .then(data => {
+            hint.style.display = 'none';
+        })
+        .catch(err => {
+            hint.style.display = 'none';
+            console.error("Lỗi lưu dữ liệu:", err);
+            alert("Lỗi đồng bộ! Các thao tác vừa rồi chưa được lưu lên mạng.");
+        });
+    }
+
+    // Tự động gọi hàm tải dữ liệu ngay khi web vừa bật lên
+    window.onload = autoLoadFromCloud;
+
+    // ==========================================
+    // NHẬP XUẤT EXCEL 
     // ==========================================
     function parseCoordStr(str) {
         if (!str) return null; let s = str.toString().replace(/,/g, '.').trim(); let val = parseFloat(s); if (isNaN(val)) return null;
@@ -541,6 +626,7 @@
             });
             alert(`✅ Đã nạp thành công ${count} thiết bị từ file Excel!\nMã liên kết đã được tự động cấp cho các thiết bị.`);
             if (drawnItems.getLayers().length > 0) map.fitBounds(drawnItems.getBounds(), {padding: [50, 50]});
+            autoSaveToCloud(); // Lưu tự động sau khi import Excel
         };
         reader.readAsArrayBuffer(file); event.target.value = ''; 
     }
@@ -576,46 +662,6 @@
             XLSX.utils.book_append_sheet(wb, ws, "DanhSachThietBi");
             XLSX.writeFile(wb, "Xuat_DuLieu_DienLuc.xlsx");
         } catch(err) { alert("Có lỗi khi xuất file Excel: " + err.message); }
-    }
-
-    function exportData() {
-        try {
-            var data = drawnItems.toGeoJSON(); var i = 0;
-            drawnItems.eachLayer(function(layer) { if(data.features[i]) { data.features[i].properties = { metadata: layer.options.metadata, customData: layer.options.customData }; } i++; });
-            var blob = new Blob([JSON.stringify(data, null, 2)], {type: "application/json"});
-            var a = document.createElement('a'); a.href = URL.createObjectURL(blob); a.download = "luoidien.json"; 
-            document.body.appendChild(a); a.click(); document.body.removeChild(a);
-        } catch(err) { alert("Lỗi xuất file JSON: " + err.message); }
-    }
-
-    function importData(event) {
-        var file = event.target.files[0]; if(!file) return; var reader = new FileReader();
-        reader.onload = function(){
-            try {
-                var data = JSON.parse(reader.result); drawnItems.clearLayers();
-                L.geoJSON(data, {
-                    pointToLayer: function(feature, latlng) {
-                        let custom = feature.properties.customData || {}; let type = custom.type || 'tba'; let meta = feature.properties.metadata || {}; return L.marker(latlng, { icon: getCustomIcon(type, meta.name || '') });
-                    },
-                    style: function(feature) {
-                        let custom = feature.properties.customData || {}; let style = { weight: 4, color: custom.color || '#3388ff' };
-                        if(custom.dash) style.dashArray = custom.dash; return style;
-                    },
-                    onEachFeature: function (feature, layer) {
-                        layer.options.metadata = feature.properties.metadata || {}; 
-                        layer.options.customData = feature.properties.customData || { type: 'tba', title: 'Thiết bị cũ' };
-                        if(!layer.options.metadata.maLienKet) layer.options.metadata.maLienKet = generateId();
-
-                        if (layer instanceof L.Polyline && (!layer.options.customData.length)) {
-                            let latlngs = layer.getLatLngs(); let dist = 0;
-                            if (latlngs.length > 0 && !Array.isArray(latlngs[0])) { for(let i=0; i<latlngs.length-1; i++) dist += map.distance(latlngs[i], latlngs[i+1]); layer.options.customData.length = dist; }
-                        }
-                        drawnItems.addLayer(layer); updatePopupContent(layer); 
-                    }
-                });
-                if (drawnItems.getLayers().length > 0) map.fitBounds(drawnItems.getBounds(), {padding: [50, 50]});
-            } catch(err) { alert("Lỗi đọc file JSON. " + err.message); }
-        }; reader.readAsText(file); event.target.value = '';
     }
 </script>
 </body>
