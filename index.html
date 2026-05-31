@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>GIS Lưới Điện hạ thế Văn Bàn</title>
+    <title>GIS Lưới Điện Chuyên Nghiệp - Lào Cai</title>
     <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/leaflet.draw/1.0.4/leaflet.draw.css" />
     <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
@@ -635,34 +635,46 @@
     function exportToExcel() {
         if (drawnItems.getLayers().length === 0) { alert("Bản đồ chưa có dữ liệu để xuất!"); return; }
         let excelData = [];
+        
         drawnItems.eachLayer(function(layer) {
-            let meta = layer.options.metadata || {}; let custom = layer.options.customData || {};
+            let meta = layer.options.metadata || {}; 
+            let custom = layer.options.customData || {};
             let lat = '', lng = '';
+            
             if (layer instanceof L.Marker) {
-                lat = layer.getLatLng().lat.toFixed(6); lng = layer.getLatLng().lng.toFixed(6);
+                lat = layer.getLatLng().lat.toFixed(8); 
+                lng = layer.getLatLng().lng.toFixed(8);
             } else if (layer instanceof L.Polyline && layer.getLatLngs) {
                 let pts = layer.getLatLngs();
-                if(pts.length > 0 && !Array.isArray(pts[0])) { lat = pts[0].lat.toFixed(6); lng = pts[0].lng.toFixed(6); } 
-                else if (pts.length > 0 && Array.isArray(pts[0]) && pts[0].length > 0) { lat = pts[0][0].lat.toFixed(6); lng = pts[0][0].lng.toFixed(6); }
+                if(pts.length > 0 && !Array.isArray(pts[0])) { 
+                    lat = pts[0].lat.toFixed(8); 
+                    lng = pts[0].lng.toFixed(8); 
+                } 
+                else if (pts.length > 0 && Array.isArray(pts[0]) && pts[0].length > 0) { 
+                    lat = pts[0][0].lat.toFixed(8); 
+                    lng = pts[0][0].lng.toFixed(8); 
+                }
             }
 
             excelData.push({
-                "Tên": meta.name || '',
-                "Vĩ độ (Lat)": lat,
-                "Kinh độ (Long)": lng,
-                "Chức năng (Loại)": meta.info || custom.title || '',
-                "Link ảnh": meta.img || '',
-                "Mã liên kết": meta.maLienKet || '',
-                "Trạm": meta.tram || ''
+                "tên": meta.name || '',
+                "lat": lat,
+                "long": lng,
+                "chức năng": meta.info || custom.title || '',
+                "link": meta.img || '',
+                "mã liên kết": meta.maLienKet || '',
+                "trạm": meta.tram || ''
             });
         });
 
         try {
             let ws = XLSX.utils.json_to_sheet(excelData);
             let wb = XLSX.utils.book_new();
-            XLSX.utils.book_append_sheet(wb, ws, "DanhSachThietBi");
-            XLSX.writeFile(wb, "Xuat_DuLieu_DienLuc.xlsx");
-        } catch(err) { alert("Có lỗi khi xuất file Excel: " + err.message); }
+            XLSX.utils.book_append_sheet(wb, ws, "Sheet1");
+            XLSX.writeFile(wb, "DuLieu_DienLuc_Xuat.xlsx");
+        } catch(err) { 
+            alert("Có lỗi khi xuất file Excel: " + err.message); 
+        }
     }
 
     function importData(event) {
