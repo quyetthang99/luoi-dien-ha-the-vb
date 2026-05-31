@@ -227,6 +227,12 @@
     var userLocationMarker = null;
     var userLocationCircle = null;
 
+    // HÀM TẠO NHANH THIẾT BỊ TẠI ĐIỂM GPS
+    window.createMarkerAtGPS = function(lat, lng, type, title) {
+        if (userLocationMarker) userLocationMarker.closePopup();
+        createMarker([lat, lng], type, title);
+    };
+
     function goToMyLocation(e) {
         if(e) { e.preventDefault(); e.stopPropagation(); }
         if (!navigator.geolocation) { alert("Trình duyệt không hỗ trợ GPS."); return; }
@@ -238,8 +244,46 @@
                 map.flyTo([lat, lng], 18);
                 if (userLocationMarker) map.removeLayer(userLocationMarker);
                 if (userLocationCircle) map.removeLayer(userLocationCircle);
-                userLocationCircle = L.circle([lat, lng], { radius: accuracy, color: '#3b82f6', fillColor: '#3b82f6', fillOpacity: 0.15, weight: 1 }).addTo(map);
-                userLocationMarker = L.circleMarker([lat, lng], { radius: 7, color: 'white', weight: 2, fillColor: '#2563eb', fillOpacity: 1 }).addTo(map).bindPopup("<b>📍 Vị trí hiện tại</b><br>Sai số: ±" + Math.round(accuracy) + " m").openPopup();
+                
+                // CẬP NHẬT: interactive: false để vòng tròn không che mất thao tác vẽ của chuột
+                userLocationCircle = L.circle([lat, lng], { radius: accuracy, color: '#3b82f6', fillColor: '#3b82f6', fillOpacity: 0.15, weight: 1, interactive: false }).addTo(map);
+                userLocationMarker = L.circleMarker([lat, lng], { radius: 7, color: 'white', weight: 2, fillColor: '#2563eb', fillOpacity: 1 }).addTo(map);
+
+                // CẬP NHẬT: Thêm 3 nút bấm Cắm cột nhanh trực tiếp vào Popup
+                let popupContent = `
+                    <div style="text-align:center; min-width: 160px;">
+                        <b style="font-size:14px;">📍 Vị trí của bạn</b><br>
+                        <span style="font-size:12px; color:#64748b;">Sai số: ±${Math.round(accuracy)} m</span><br>
+                        <hr style="margin:8px 0; border:0; border-top:1px solid #e2e8f0;">
+                        <b style="font-size:12px; color:#0284c7;">Cắm nhanh thiết bị:</b><br>
+                        <div style="display:flex; flex-direction:column; gap:5px; margin-top:8px;">
+                            <button onclick="createMarkerAtGPS(${lat}, ${lng}, 'tba', 'Trạm biến áp')" style="background:#fef3c7; border:1px solid #f59e0b; padding:6px; border-radius:4px; font-weight:bold; cursor:pointer; color:#b45309;">⚡ Trạm biến áp</button>
+                            <button onclick="createMarkerAtGPS(${lat}, ${lng}, 'ctt', 'Cột trung thế')" style="background:#fef3c7; border:1px solid #f59e0b; padding:6px; border-radius:4px; font-weight:bold; cursor:pointer; color:#b45309;">🔴 Cột trung thế</button>
+                            <button onclick="createMarkerAtGPS(${lat}, ${lng}, 'cht', 'Cột hạ thế')" style="background:#dcfce7; border:1px solid #22c55e; padding:6px; border-radius:4px; font-weight:bold; cursor:pointer; color:#15803d;">🟢 Cột hạ thế</button>
+                        </div>
+                    </div>
+                `;
+                userLocationMarker.bindPopup(popupContent).openPopup();
+
+                // CẬP NHẬT: Chuyển tiếp click nếu người dùng đang dùng nút cắm trên thanh Menu
+                userLocationMarker.on('click', function(e) {
+                    if (isMeasuring) {
+                        measurePoints.push(e.latlng);
+                        if (measurePoints.length === 1) {
+                            measureLine = L.polyline(measurePoints, {color: '#ef4444', weight: 4, dashArray: '5, 8'}).addTo(map);
+                            measureTooltip = L.tooltip({permanent: true, direction: 'right', className: 'measure-tooltip'}).setLatLng(e.latlng).addTo(map).setContent('0 m');
+                        } else { measureLine.setLatLngs(measurePoints); }
+                        setTimeout(() => userLocationMarker.closePopup(), 10);
+                        return;
+                    }
+                    if (currentMode) {
+                        if (currentMode === 'tba' || currentMode === 'ctt' || currentMode === 'cht') {
+                            createMarker(e.latlng, currentMode, currentTitle);
+                        } else { addPointToLine(e.latlng); }
+                        setTimeout(() => userLocationMarker.closePopup(), 10);
+                    }
+                });
+
             },
             function(error) { hint.style.display = 'none'; alert("Lỗi GPS: " + error.message); },
             { enableHighAccuracy: true, timeout: 15000, maximumAge: 0 } 
@@ -372,7 +416,7 @@
         if(!polyLayer.options.customData) polyLayer.options.customData = {};
         polyLayer.options.customData.length = dist; 
         drawnItems.addLayer(polyLayer); editLayerData(L.stamp(polyLayer), true);
-        autoSaveToCloud(); // Lưu tự động
+        autoSaveToCloud(); 
     }
 
     map.on('draw:edited', function (e) {
@@ -387,7 +431,7 @@
             }
             updatePopupContent(layer);
         });
-        autoSaveToCloud(); // Lưu tự động
+        autoSaveToCloud(); 
     });
 
     function getCustomIcon(type, labelText) {
@@ -403,7 +447,7 @@
         marker.options.customData = { type: type, title: title }; 
         marker.options.metadata = { name: '', info: '', tram: '', img: '', maLienKet: generateId() };
         editLayerData(L.stamp(marker), true);
-        autoSaveToCloud(); // Lưu tự động
+        autoSaveToCloud(); 
     }
 
     map.on('popupopen', function(e) {
@@ -458,14 +502,14 @@
         };
         if (layer instanceof L.Marker && layer.options.customData && layer.options.customData.type) { layer.setIcon(getCustomIcon(layer.options.customData.type, newName)); }
         updatePopupContent(layer);
-        autoSaveToCloud(); // Lưu tự động
+        autoSaveToCloud(); 
     };
 
     window.deleteLayerQuick = function(layerId) { 
         if(confirm("Xóa đối tượng này khỏi bản đồ?")) { 
             var layer = drawnItems.getLayer(layerId); 
             if(layer) drawnItems.removeLayer(layer); 
-            autoSaveToCloud(); // Lưu tự động
+            autoSaveToCloud(); 
         } 
     };
 
@@ -513,7 +557,6 @@
     const BIN_ID = '6a1c58c521f9ee59d2a18f67'; 
     const API_KEY = '$2a$10$QTQ5oglOmLBqzdWsoEkTKO0vRQ1pBluexrZ654nhIto.pulmXUPi.';
 
-    // 1. Tự động tải dữ liệu khi mở web
     function autoLoadFromCloud() {
         var hint = document.getElementById('draw-hint');
         hint.style.display = 'block'; hint.innerHTML = "⏳ Đang tải dữ liệu lưới điện từ Đám mây...";
@@ -524,7 +567,7 @@
         .then(response => response.json())
         .then(res => {
             hint.style.display = 'none';
-            if (!res.record || !res.record.features) return; // Bỏ qua nếu dữ liệu rỗng
+            if (!res.record || !res.record.features) return; 
             
             drawnItems.clearLayers();
             L.geoJSON(res.record, {
@@ -550,7 +593,6 @@
         });
     }
 
-    // 2. Tự động lưu dữ liệu lên đám mây
     function autoSaveToCloud() {
         var hint = document.getElementById('draw-hint');
         hint.style.display = 'block'; hint.innerHTML = "💾 Đang đồng bộ dữ liệu lên Đám mây...";
@@ -580,7 +622,6 @@
         });
     }
 
-    // Tự động gọi hàm tải dữ liệu ngay khi web vừa bật lên
     window.onload = autoLoadFromCloud;
 
     // ==========================================
@@ -627,7 +668,7 @@
             });
             alert(`✅ Đã nạp thành công ${count} thiết bị từ file Excel!\nMã liên kết đã được tự động cấp cho các thiết bị.`);
             if (drawnItems.getLayers().length > 0) map.fitBounds(drawnItems.getBounds(), {padding: [50, 50]});
-            autoSaveToCloud(); // Lưu tự động sau khi import Excel
+            autoSaveToCloud(); 
         };
         reader.readAsArrayBuffer(file); event.target.value = ''; 
     }
@@ -704,7 +745,7 @@
                 });
                 if (drawnItems.getLayers().length > 0) map.fitBounds(drawnItems.getBounds(), {padding: [50, 50]});
                 
-                autoSaveToCloud(); // Ép lưu mây luôn sau khi nhập file JSON
+                autoSaveToCloud(); 
                 hint.style.display = 'none';
                 alert("✅ Đã nạp file Json cũ và đồng bộ thành công lên mây!");
             } catch(err) { 
