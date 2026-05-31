@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>GIS Hạ Thế Văn Bàn</title>
+    <title>GIS Lưới Điện Chuyên Nghiệp - Lào Cai</title>
     <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/leaflet.draw/1.0.4/leaflet.draw.css" />
     <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
@@ -101,6 +101,11 @@
         
         .leaflet-draw-toolbar a { background-color: #f8fafc !important; border: 1px solid #94a3b8 !important;}
         .highlighted-line { filter: drop-shadow(0 0 4px rgba(0,0,0,0.6)); cursor: pointer; }
+
+        /* CSS Mới cho Bảng Lọc Trạm */
+        .station-label { display:flex; align-items:center; gap:8px; font-size:13px; cursor:pointer; background:#f8fafc; padding:8px 10px; border:1px solid #cbd5e1; border-radius:6px; transition: 0.2s; color: #0f172a; font-weight: 500;}
+        .station-label:hover { background: #f1f5f9; border-color: #94a3b8; }
+        .station-label input { width: 16px; height: 16px; accent-color: #0284c7; cursor:pointer; margin:0;}
     </style>
 </head>
 <body>
@@ -161,6 +166,16 @@
             <button class="tool-btn" onclick="exportToExcel()" style="justify-content: center; background: #d9f99d; color: #0f766e; border-color: #84cc16; margin-top: 5px;">
                 📥 Xuất ra file Excel
             </button>
+        </div>
+
+        <div class="accordion-toggle" onclick="toggleAcc('acc-filter')"><span>☰ Lọc hiển thị theo Trạm</span> <span>▼</span></div>
+        <div id="acc-filter" class="accordion-content">
+            <div style="display:flex; gap:5px; margin-bottom:10px; margin-top:5px; padding-right: 5px;">
+                <button onclick="toggleAllStations(true)" style="flex:1; padding:6px; background:#e0f2fe; border:1px solid #0284c7; border-radius:4px; cursor:pointer; font-weight:bold; color:#0369a1; transition:0.2s;">Bật tất cả</button>
+                <button onclick="toggleAllStations(false)" style="flex:1; padding:6px; background:#fef2f2; border:1px solid #ef4444; border-radius:4px; cursor:pointer; font-weight:bold; color:#b91c1c; transition:0.2s;">Tắt tất cả</button>
+            </div>
+            <div id="station-filter-list" style="max-height: 200px; overflow-y: auto; display:flex; flex-direction:column; gap:5px; padding-right:5px;">
+                </div>
         </div>
     </div>
 
@@ -410,6 +425,8 @@
         if(!polyLayer.options.customData) polyLayer.options.customData = {};
         polyLayer.options.customData.length = dist; 
         drawnItems.addLayer(polyLayer); editLayerData(L.stamp(polyLayer), true);
+        
+        updateStationFilterUI('Chưa phân trạm'); // Cập nhật Lọc Trạm
         autoSaveToCloud(); 
     }
 
@@ -429,6 +446,7 @@
     });
 
     map.on('draw:deleted', function (e) {
+        updateStationFilterUI(); // Cập nhật lại Lọc Trạm khi có thiết bị bị xóa
         autoSaveToCloud(); 
     });
 
@@ -445,6 +463,8 @@
         marker.options.customData = { type: type, title: title }; 
         marker.options.metadata = { name: '', info: '', tram: '', img: '', maLienKet: generateId() };
         editLayerData(L.stamp(marker), true);
+        
+        updateStationFilterUI('Chưa phân trạm'); // Cập nhật Lọc Trạm
         autoSaveToCloud(); 
     }
 
@@ -491,15 +511,23 @@
     window.saveEditData = function(layerId) {
         var layer = drawnItems.getLayer(layerId); if(!layer) return;
         let newName = document.getElementById(`p-name-${layerId}`).value || 'Thiết bị';
+        let newTram = document.getElementById(`p-tram-${layerId}`).value || '';
+        
         layer.options.metadata = { 
             name: newName, 
             info: document.getElementById(`p-info-${layerId}`).value || '', 
-            tram: document.getElementById(`p-tram-${layerId}`).value || '',
+            tram: newTram,
             img: document.getElementById(`p-img-${layerId}`).value || '',
             maLienKet: document.getElementById(`p-ma-${layerId}`).value || ''
         };
+        
         if (layer instanceof L.Marker && layer.options.customData && layer.options.customData.type) { layer.setIcon(getCustomIcon(layer.options.customData.type, newName)); }
         updatePopupContent(layer);
+        
+        // Cập nhật Lọc Trạm sau khi sửa tên Trạm
+        let tramKey = newTram.trim() === '' ? 'Chưa phân trạm' : newTram.trim();
+        updateStationFilterUI(tramKey); 
+        
         autoSaveToCloud(); 
     };
 
@@ -509,6 +537,7 @@
             if(layer) {
                 map.closePopup(); 
                 drawnItems.removeLayer(layer); 
+                updateStationFilterUI(); // Cập nhật Lọc Trạm
                 autoSaveToCloud(); 
             }
         } 
@@ -553,6 +582,90 @@
     window.closeGallery = function() { document.getElementById('gallery-modal').classList.remove('show'); document.getElementById('main-gallery-img').src = ''; };
 
     // ==========================================
+    // LOGIC: LỌC TRẠM THÔNG MINH BẬT / TẮT
+    // ==========================================
+    function getCheckedStations() {
+        let checkboxes = document.querySelectorAll('.station-cb');
+        let checked = [];
+        checkboxes.forEach(cb => { if(cb.checked) checked.push(cb.value); });
+        return checked;
+    }
+
+    function toggleAllStations(isCheck) {
+        let checkboxes = document.querySelectorAll('.station-cb');
+        checkboxes.forEach(cb => cb.checked = isCheck);
+        applyStationFilter();
+    }
+
+    function updateStationFilterUI(forceCheckStation = null) {
+        let currentChecked = getCheckedStations(); 
+        let stations = new Set();
+        
+        // Quét toàn bộ bản đồ để thu thập tên trạm
+        drawnItems.eachLayer(layer => {
+            let tram = (layer.options.metadata.tram || '').trim();
+            stations.add(tram === '' ? 'Chưa phân trạm' : tram);
+        });
+
+        let stationArray = Array.from(stations).sort();
+        let listContainer = document.getElementById('station-filter-list');
+        listContainer.innerHTML = '';
+
+        // Nếu mới load lần đầu (chưa có nút nào) thì mặc định tích chọn tất cả
+        let isFirstLoad = (currentChecked.length === 0 && document.querySelectorAll('.station-cb').length === 0);
+
+        stationArray.forEach(tram => {
+            // Giữ lại trạng thái đã tích, hoặc tích mới nếu là forceCheckStation
+            let isChecked = isFirstLoad || currentChecked.includes(tram) || tram === forceCheckStation;
+            
+            let label = document.createElement('label');
+            label.className = 'station-label';
+            
+            let cb = document.createElement('input');
+            cb.type = 'checkbox';
+            cb.className = 'station-cb';
+            cb.value = tram;
+            cb.checked = isChecked;
+            cb.onchange = applyStationFilter;
+
+            label.appendChild(cb);
+            label.appendChild(document.createTextNode(tram));
+            listContainer.appendChild(label);
+        });
+
+        applyStationFilter(); // Áp dụng ngay bộ lọc
+    }
+
+    function applyStationFilter() {
+        let checkedStations = getCheckedStations();
+        
+        drawnItems.eachLayer(layer => {
+            let tram = (layer.options.metadata.tram || '').trim();
+            if (tram === '') tram = 'Chưa phân trạm';
+
+            let isVisible = checkedStations.includes(tram);
+
+            // Ẩn/Hiện đường dây
+            if (layer.getElement) { 
+                let el = layer.getElement();
+                if (el) el.style.display = isVisible ? '' : 'none';
+            }
+            // Ẩn/Hiện Cột điện
+            if (layer._icon) layer._icon.style.display = isVisible ? '' : 'none';
+            if (layer._shadow) layer._shadow.style.display = isVisible ? '' : 'none';
+
+            // Đóng popup nếu nó đang mở mà trạm bị tắt
+            if (!isVisible && layer.isPopupOpen()) {
+                layer.closePopup();
+            }
+        });
+    }
+
+    // Đảm bảo khi zoom/kéo bản đồ, các đối tượng mới sinh ra vẫn tuân thủ bộ lọc
+    map.on('moveend', applyStationFilter);
+    map.on('zoomend', applyStationFilter);
+
+    // ==========================================
     // TÍCH HỢP GOOGLE FIREBASE REALTIME DATABASE
     // ==========================================
     const FIREBASE_URL = 'https://luoi-dien-van-ban-default-rtdb.asia-southeast1.firebasedatabase.app/dulieu.json';
@@ -588,6 +701,9 @@
                 }
             });
             if (drawnItems.getLayers().length > 0) map.fitBounds(drawnItems.getBounds(), {padding: [50, 50]});
+            
+            // Khởi tạo Bảng Lọc Trạm sau khi nạp xong dữ liệu
+            updateStationFilterUI();
         })
         .catch(err => {
             hint.style.display = 'none';
@@ -612,9 +728,7 @@
 
         fetch(FIREBASE_URL, {
             method: 'PUT',
-            headers: {
-                'Content-Type': 'application/json'
-            },
+            headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify(data)
         })
         .then(response => {
@@ -635,7 +749,7 @@
     window.onload = autoLoadFromCloud;
 
     // ==========================================
-    // NHẬP XUẤT EXCEL 
+    // NHẬP XUẤT EXCEL
     // ==========================================
     function parseCoordStr(str) {
         if (!str) return null; let s = str.toString().replace(/,/g, '.').trim(); let val = parseFloat(s); if (isNaN(val)) return null;
@@ -677,6 +791,9 @@
                 }
             });
             if (drawnItems.getLayers().length > 0) map.fitBounds(drawnItems.getBounds(), {padding: [50, 50]});
+            
+            // Cập nhật lại Bảng Lọc Trạm sau khi nạp Excel
+            updateStationFilterUI();
             autoSaveToCloud(true, `Đã nạp thành công ${count} thiết bị từ Excel và đồng bộ lên Firebase!`);
         };
         reader.readAsArrayBuffer(file); event.target.value = ''; 
