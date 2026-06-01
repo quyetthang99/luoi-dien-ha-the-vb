@@ -102,7 +102,6 @@
         .leaflet-draw-toolbar a { background-color: #f8fafc !important; border: 1px solid #94a3b8 !important;}
         .highlighted-line { filter: drop-shadow(0 0 4px rgba(0,0,0,0.6)); cursor: pointer; }
 
-        /* CSS Mới cho Bảng Lọc Trạm */
         .station-label { display:flex; align-items:center; gap:8px; font-size:13px; cursor:pointer; background:#f8fafc; padding:8px 10px; border:1px solid #cbd5e1; border-radius:6px; transition: 0.2s; color: #0f172a; font-weight: 500;}
         .station-label:hover { background: #f1f5f9; border-color: #94a3b8; }
         .station-label input { width: 16px; height: 16px; accent-color: #0284c7; cursor:pointer; margin:0;}
@@ -155,6 +154,13 @@
             <button class="tool-btn" onclick="setMode(this, 'dz04', 'Lộ Hạ thế', '#1e293b')"><div class="line-preview" style="background:#1e293b"></div> Lộ 0.4kV (Đen)</button>
             <button class="tool-btn" onclick="setMode(this, 'dz04', 'Lộ Hạ thế', '#3b82f6')"><div class="line-preview" style="background:#3b82f6"></div> Lộ 0.4kV (Xanh dương)</button>
         </div>
+
+        <div class="accordion-toggle" onclick="toggleAcc('acc-advanced')"><span>☰ Sửa nhanh hàng loạt</span> <span>▼</span></div>
+        <div id="acc-advanced" class="accordion-content">
+            <button class="tool-btn" onclick="startPolygonSelect(this)" style="justify-content: center; background: #fdf2f8; color: #e11d48; border-color: #f43f5e;">
+                ⬡ Khoanh vùng đổi tên Trạm
+            </button>
+        </div>
         
         <div class="accordion-toggle" onclick="toggleAcc('acc-data')"><span>☰ Dữ liệu Excel</span> <span>▼</span></div>
         <div id="acc-data" class="accordion-content">
@@ -175,7 +181,7 @@
                 <button onclick="toggleAllStations(false)" style="flex:1; padding:6px; background:#fef2f2; border:1px solid #ef4444; border-radius:4px; cursor:pointer; font-weight:bold; color:#b91c1c; transition:0.2s;">Tắt tất cả</button>
             </div>
             <div id="station-filter-list" style="max-height: 200px; overflow-y: auto; display:flex; flex-direction:column; gap:5px; padding-right:5px;">
-                </div>
+            </div>
         </div>
     </div>
 
@@ -315,6 +321,87 @@
     var currentMode = null; var currentTitle = ""; var currentColor = null; var currentDash = null; var currentPolyline = null;
     let isMeasuring = false; let measureLine = null; let measurePoints = []; let measureTooltip = null;
 
+    // CÔNG CỤ KHOANH VÙNG (POLYGON)
+    var polygonDrawer = new L.Draw.Polygon(map, {
+        shapeOptions: { color: '#e11d48', weight: 3, dashArray: '5, 5', fillOpacity: 0.2 }
+    });
+
+    function startPolygonSelect(btnElement) {
+        cancelDrawing(); 
+        document.querySelectorAll('.tool-btn').forEach(b => b.classList.remove('active')); 
+        if(btnElement) btnElement.classList.add('active');
+
+        polygonDrawer.enable();
+        var hint = document.getElementById('draw-hint');
+        hint.style.display = 'block';
+        hint.innerHTML = "🖱️ <b>Khoanh vùng sửa Trạm:</b> Click vẽ các góc. <b>Click lại điểm đầu</b> để hoàn thành. <br><span class='hint-esc'>💡 Nhấn ESC để TẮT</span>";
+    }
+
+    // THUẬT TOÁN KIỂM TRA ĐIỂM NẰM TRONG VÙNG KHOANH (Ray-casting)
+    function isPointInsidePolygon(latlng, polyLayer) {
+        var polyPoints = polyLayer.getLatLngs()[0]; 
+        var x = latlng.lat, y = latlng.lng;
+        var inside = false;
+        for (var i = 0, j = polyPoints.length - 1; i < polyPoints.length; j = i++) {
+            var xi = polyPoints[i].lat, yi = polyPoints[i].lng;
+            var xj = polyPoints[j].lat, yj = polyPoints[j].lng;
+            var intersect = ((yi > y) != (yj > y)) && (x < (xj - xi) * (y - yi) / (yj - yi) + xi);
+            if (intersect) inside = !inside;
+        }
+        return inside;
+    }
+
+    // BẮT SỰ KIỆN KHI VẼ XONG VÙNG KHOANH
+    map.on('draw:created', function (e) {
+        if (e.layerType === 'polygon') {
+            let polyLayer = e.layer;
+            map.addLayer(polyLayer); // Tạm thời hiện vùng khoanh lên bản đồ
+
+            let selectedLayers = [];
+            drawnItems.eachLayer(function(layer) {
+                if (layer instanceof L.Marker) {
+                    if (isPointInsidePolygon(layer.getLatLng(), polyLayer)) {
+                        selectedLayers.push(layer);
+                    }
+                } else if (layer instanceof L.Polyline) {
+                    let latlngs = layer.getLatLngs();
+                    let firstPoint = Array.isArray(latlngs[0]) ? latlngs[0][0] : latlngs[0];
+                    if (firstPoint && isPointInsidePolygon(firstPoint, polyLayer)) {
+                        selectedLayers.push(layer);
+                    }
+                }
+            });
+
+            if (selectedLayers.length === 0) {
+                alert("Không tìm thấy thiết bị nào trong vùng vừa khoanh!");
+                map.removeLayer(polyLayer);
+                document.getElementById('draw-hint').style.display = 'none';
+                document.querySelectorAll('.tool-btn').forEach(b => b.classList.remove('active'));
+                return;
+            }
+
+            // Hỏi tên Trạm mới
+            let newTram = prompt(`Đã chọn thành công ${selectedLayers.length} thiết bị/đường dây trong vùng.\n\nHãy nhập tên "Thuộc Trạm" mới cho tất cả thiết bị này:`, "");
+            
+            if (newTram !== null) { // Nếu không bấm Cancel
+                let newName = newTram.trim();
+                selectedLayers.forEach(layer => {
+                    if (!layer.options.metadata) layer.options.metadata = {};
+                    layer.options.metadata.tram = newName;
+                    updatePopupContent(layer);
+                });
+                
+                updateStationFilterUI(newName === '' ? 'Chưa phân trạm' : newName); // Cập nhật lại list Trạm
+                autoSaveToCloud(true, `Đã cập nhật hàng loạt Trạm "${newName}" cho ${selectedLayers.length} thiết bị!`);
+            }
+
+            // Xóa vùng khoanh đi cho đỡ vướng bản đồ
+            map.removeLayer(polyLayer);
+            document.getElementById('draw-hint').style.display = 'none';
+            document.querySelectorAll('.tool-btn').forEach(b => b.classList.remove('active'));
+        }
+    });
+
     function clearMeasure() {
         if(measureLine) map.removeLayer(measureLine);
         if(measureTooltip) map.removeLayer(measureTooltip);
@@ -347,6 +434,7 @@
         document.getElementById('draw-hint').style.display = 'none';
         document.getElementById('map').classList.remove('drawing-mode-active');
         if(isMeasuring) { toggleMeasureMode(); } 
+        if(polygonDrawer) { polygonDrawer.disable(); } // Tắt công cụ khoanh vùng nếu đang mở
     }
 
     function setMode(btnElement, mode, title, color = null, dashArray = null) {
@@ -354,6 +442,8 @@
         currentMode = mode; currentTitle = title; currentColor = color; currentDash = dashArray; 
         if (currentPolyline) { finalizePolyline(currentPolyline); currentPolyline = null; }
         if(isMeasuring) { toggleMeasureMode(); } 
+        if(polygonDrawer) { polygonDrawer.disable(); }
+
         document.querySelectorAll('.tool-btn').forEach(b => b.classList.remove('active')); btnElement.classList.add('active');
         
         var hint = document.getElementById('draw-hint'); hint.style.display = 'block';
@@ -426,7 +516,7 @@
         polyLayer.options.customData.length = dist; 
         drawnItems.addLayer(polyLayer); editLayerData(L.stamp(polyLayer), true);
         
-        updateStationFilterUI('Chưa phân trạm'); // Cập nhật Lọc Trạm
+        updateStationFilterUI('Chưa phân trạm'); 
         autoSaveToCloud(); 
     }
 
@@ -446,7 +536,7 @@
     });
 
     map.on('draw:deleted', function (e) {
-        updateStationFilterUI(); // Cập nhật lại Lọc Trạm khi có thiết bị bị xóa
+        updateStationFilterUI(); 
         autoSaveToCloud(); 
     });
 
@@ -464,7 +554,7 @@
         marker.options.metadata = { name: '', info: '', tram: '', img: '', maLienKet: generateId() };
         editLayerData(L.stamp(marker), true);
         
-        updateStationFilterUI('Chưa phân trạm'); // Cập nhật Lọc Trạm
+        updateStationFilterUI('Chưa phân trạm'); 
         autoSaveToCloud(); 
     }
 
@@ -524,7 +614,6 @@
         if (layer instanceof L.Marker && layer.options.customData && layer.options.customData.type) { layer.setIcon(getCustomIcon(layer.options.customData.type, newName)); }
         updatePopupContent(layer);
         
-        // Cập nhật Lọc Trạm sau khi sửa tên Trạm
         let tramKey = newTram.trim() === '' ? 'Chưa phân trạm' : newTram.trim();
         updateStationFilterUI(tramKey); 
         
@@ -537,7 +626,7 @@
             if(layer) {
                 map.closePopup(); 
                 drawnItems.removeLayer(layer); 
-                updateStationFilterUI(); // Cập nhật Lọc Trạm
+                updateStationFilterUI(); 
                 autoSaveToCloud(); 
             }
         } 
@@ -601,7 +690,6 @@
         let currentChecked = getCheckedStations(); 
         let stations = new Set();
         
-        // Quét toàn bộ bản đồ để thu thập tên trạm
         drawnItems.eachLayer(layer => {
             let tram = (layer.options.metadata.tram || '').trim();
             stations.add(tram === '' ? 'Chưa phân trạm' : tram);
@@ -611,11 +699,9 @@
         let listContainer = document.getElementById('station-filter-list');
         listContainer.innerHTML = '';
 
-        // Nếu mới load lần đầu (chưa có nút nào) thì mặc định tích chọn tất cả
         let isFirstLoad = (currentChecked.length === 0 && document.querySelectorAll('.station-cb').length === 0);
 
         stationArray.forEach(tram => {
-            // Giữ lại trạng thái đã tích, hoặc tích mới nếu là forceCheckStation
             let isChecked = isFirstLoad || currentChecked.includes(tram) || tram === forceCheckStation;
             
             let label = document.createElement('label');
@@ -633,7 +719,7 @@
             listContainer.appendChild(label);
         });
 
-        applyStationFilter(); // Áp dụng ngay bộ lọc
+        applyStationFilter(); 
     }
 
     function applyStationFilter() {
@@ -645,23 +731,19 @@
 
             let isVisible = checkedStations.includes(tram);
 
-            // Ẩn/Hiện đường dây
             if (layer.getElement) { 
                 let el = layer.getElement();
                 if (el) el.style.display = isVisible ? '' : 'none';
             }
-            // Ẩn/Hiện Cột điện
             if (layer._icon) layer._icon.style.display = isVisible ? '' : 'none';
             if (layer._shadow) layer._shadow.style.display = isVisible ? '' : 'none';
 
-            // Đóng popup nếu nó đang mở mà trạm bị tắt
             if (!isVisible && layer.isPopupOpen()) {
                 layer.closePopup();
             }
         });
     }
 
-    // Đảm bảo khi zoom/kéo bản đồ, các đối tượng mới sinh ra vẫn tuân thủ bộ lọc
     map.on('moveend', applyStationFilter);
     map.on('zoomend', applyStationFilter);
 
@@ -702,7 +784,6 @@
             });
             if (drawnItems.getLayers().length > 0) map.fitBounds(drawnItems.getBounds(), {padding: [50, 50]});
             
-            // Khởi tạo Bảng Lọc Trạm sau khi nạp xong dữ liệu
             updateStationFilterUI();
         })
         .catch(err => {
@@ -792,7 +873,6 @@
             });
             if (drawnItems.getLayers().length > 0) map.fitBounds(drawnItems.getBounds(), {padding: [50, 50]});
             
-            // Cập nhật lại Bảng Lọc Trạm sau khi nạp Excel
             updateStationFilterUI();
             autoSaveToCloud(true, `Đã nạp thành công ${count} thiết bị từ Excel và đồng bộ lên Firebase!`);
         };
