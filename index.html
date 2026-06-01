@@ -210,13 +210,41 @@
     L.control.zoom({ position: 'topright' }).addTo(map);
 
     var drawnItems = new L.FeatureGroup(); map.addLayer(drawnItems);
+    
+    // LỚP BẢN ĐỒ CHỦ QUYỀN (Mặc định luôn hiển thị)
+    var nationalLayer = new L.FeatureGroup();
+
+    // Icon Hà Nội
+    var hanoiIcon = L.divIcon({
+        html: '<div style="font-size: 20px; color: #ef4444; text-shadow: 1px 1px 2px #fff, -1px -1px 2px #fff; text-align: center; margin-top:-5px;">★</div><div style="font-size: 13px; font-weight: bold; color: #b91c1c; white-space: nowrap; margin-left: -20px; text-shadow: 1px 1px 0 #fff, -1px -1px 0 #fff, 1px -1px 0 #fff, -1px 1px 0 #fff;">Thủ đô Hà Nội</div>',
+        className: '', iconSize: [24, 24], iconAnchor: [12, 12]
+    });
+    L.marker([21.028511, 105.804817], { icon: hanoiIcon, interactive: false }).addTo(nationalLayer);
+
+    // Icon Hoàng Sa
+    var hoangSaIcon = L.divIcon({
+        html: '<div style="font-size: 13px; font-weight: bold; color: #0369a1; text-shadow: 1px 1px 0 #fff, -1px -1px 0 #fff, 1px -1px 0 #fff, -1px 1px 0 #fff; white-space: nowrap;">🇻🇳 QĐ. Hoàng Sa (Việt Nam)</div>',
+        className: '', iconSize: [150, 20], iconAnchor: [75, 10]
+    });
+    L.marker([16.5, 112.0], { icon: hoangSaIcon, interactive: false }).addTo(nationalLayer);
+
+    // Icon Trường Sa
+    var truongSaIcon = L.divIcon({
+        html: '<div style="font-size: 13px; font-weight: bold; color: #0369a1; text-shadow: 1px 1px 0 #fff, -1px -1px 0 #fff, 1px -1px 0 #fff, -1px 1px 0 #fff; white-space: nowrap;">🇻🇳 QĐ. Trường Sa (Việt Nam)</div>',
+        className: '', iconSize: [150, 20], iconAnchor: [75, 10]
+    });
+    L.marker([10.0, 114.0], { icon: truongSaIcon, interactive: false }).addTo(nationalLayer);
+
+    // Thêm Lớp Chủ Quyền vào Bản đồ
+    nationalLayer.addTo(map);
+
     var boundaryLayer = new L.FeatureGroup(); var bounds = [[21.85, 103.5], [22.85, 104.6]]; 
     L.rectangle(bounds, { color: "#f97316", weight: 3, fillOpacity: 0.05, dashArray: '8, 10' }).addTo(boundaryLayer);
     map.addLayer(boundaryLayer);
 
     L.control.layers(
         { "🗺️ Bản đồ Sạch (Khuyên dùng)": positron, "🛣️ Bản đồ Giao thông": osm, "🛰️ Bản đồ Vệ tinh": satellite },
-        { "⚡ Lưới điện (Tự vẽ)": drawnItems, "🚩 Ranh giới Lào Cai": boundaryLayer },
+        { "⚡ Lưới điện (Tự vẽ)": drawnItems, "🚩 Ranh giới Lào Cai": boundaryLayer, "🇻🇳 Chủ quyền Việt Nam": nationalLayer },
         { position: 'topright' }
     ).addTo(map);
 
@@ -321,7 +349,6 @@
     var currentMode = null; var currentTitle = ""; var currentColor = null; var currentDash = null; var currentPolyline = null;
     let isMeasuring = false; let measureLine = null; let measurePoints = []; let measureTooltip = null;
 
-    // CÔNG CỤ KHOANH VÙNG (POLYGON)
     var polygonDrawer = new L.Draw.Polygon(map, {
         shapeOptions: { color: '#e11d48', weight: 3, dashArray: '5, 5', fillOpacity: 0.2 }
     });
@@ -337,7 +364,6 @@
         hint.innerHTML = "🖱️ <b>Khoanh vùng sửa Trạm:</b> Click vẽ các góc. <b>Click lại điểm đầu</b> để hoàn thành. <br><span class='hint-esc'>💡 Nhấn ESC để TẮT</span>";
     }
 
-    // THUẬT TOÁN KIỂM TRA ĐIỂM NẰM TRONG VÙNG KHOANH (Ray-casting)
     function isPointInsidePolygon(latlng, polyLayer) {
         var polyPoints = polyLayer.getLatLngs()[0]; 
         var x = latlng.lat, y = latlng.lng;
@@ -351,11 +377,10 @@
         return inside;
     }
 
-    // BẮT SỰ KIỆN KHI VẼ XONG VÙNG KHOANH
     map.on('draw:created', function (e) {
         if (e.layerType === 'polygon') {
             let polyLayer = e.layer;
-            map.addLayer(polyLayer); // Tạm thời hiện vùng khoanh lên bản đồ
+            map.addLayer(polyLayer);
 
             let selectedLayers = [];
             drawnItems.eachLayer(function(layer) {
@@ -380,10 +405,9 @@
                 return;
             }
 
-            // Hỏi tên Trạm mới
             let newTram = prompt(`Đã chọn thành công ${selectedLayers.length} thiết bị/đường dây trong vùng.\n\nHãy nhập tên "Thuộc Trạm" mới cho tất cả thiết bị này:`, "");
             
-            if (newTram !== null) { // Nếu không bấm Cancel
+            if (newTram !== null) { 
                 let newName = newTram.trim();
                 selectedLayers.forEach(layer => {
                     if (!layer.options.metadata) layer.options.metadata = {};
@@ -391,11 +415,10 @@
                     updatePopupContent(layer);
                 });
                 
-                updateStationFilterUI(newName === '' ? 'Chưa phân trạm' : newName); // Cập nhật lại list Trạm
+                updateStationFilterUI(newName === '' ? 'Chưa phân trạm' : newName); 
                 autoSaveToCloud(true, `Đã cập nhật hàng loạt Trạm "${newName}" cho ${selectedLayers.length} thiết bị!`);
             }
 
-            // Xóa vùng khoanh đi cho đỡ vướng bản đồ
             map.removeLayer(polyLayer);
             document.getElementById('draw-hint').style.display = 'none';
             document.querySelectorAll('.tool-btn').forEach(b => b.classList.remove('active'));
@@ -434,7 +457,7 @@
         document.getElementById('draw-hint').style.display = 'none';
         document.getElementById('map').classList.remove('drawing-mode-active');
         if(isMeasuring) { toggleMeasureMode(); } 
-        if(polygonDrawer) { polygonDrawer.disable(); } // Tắt công cụ khoanh vùng nếu đang mở
+        if(polygonDrawer) { polygonDrawer.disable(); }
     }
 
     function setMode(btnElement, mode, title, color = null, dashArray = null) {
