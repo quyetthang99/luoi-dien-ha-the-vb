@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>GIS Hạ Thế Văn Bàn</title>
+    <title>GIS Lưới Điện Chuyên Nghiệp - Lào Cai</title>
     
     <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/leaflet.draw/1.0.4/leaflet.draw.css" />
@@ -65,8 +65,8 @@
         .search-box button:hover { background: #0369a1; }
         
         .leaflet-control-layers { font-family: 'Segoe UI', sans-serif; border-radius: 8px; padding: 5px; box-shadow: 0 2px 10px rgba(0,0,0,0.2) !important; }
-        #draw-hint { position: absolute; bottom: 20px; left: 50%; transform: translateX(-50%); z-index: 1000; background: rgba(30, 41, 59, 0.95); color: white; padding: 12px 20px; border-radius: 12px; font-size: 0.95rem; display: none; text-align: center; line-height: 1.6; box-shadow: 0 10px 25px rgba(0,0,0,0.4); border: 1px solid #475569;}
-        .hint-esc { color: #fca5a5; font-weight: bold; font-size: 0.85rem;}
+        #draw-hint { position: absolute; bottom: 20px; left: 50%; transform: translateX(-50%); z-index: 1000; background: rgba(30, 41, 59, 0.9); color: white; padding: 8px 20px; border-radius: 20px; font-size: 0.95rem; display: none; pointer-events: none; text-align: center; line-height: 1.5; box-shadow: 0 4px 10px rgba(0,0,0,0.3);}
+        .hint-esc { color: #fca5a5; font-weight: bold; }
 
         .popup-form { width: 260px; }
         .popup-form h3 { margin: 0 0 10px 0; color: #0284c7; font-size: 15px; border-bottom: 2px solid #e2e8f0; padding-bottom: 5px; text-transform: uppercase;}
@@ -78,15 +78,12 @@
         .img-count-badge { text-align: center; font-size: 11px; color: #64748b; margin-top: 5px; font-weight: bold; }
         
         .action-btns { display: flex; gap: 5px; margin-top: 10px; flex-wrap: wrap; }
-        .action-btns button { padding: 8px 5px; font-size: 0.85rem; flex: 1 1 calc(50% - 5px); color: white; border: none; border-radius: 4px; cursor: pointer; font-weight: bold; text-align: center;}
-        
-        /* Màu nút thao tác */
+        .action-btns button { padding: 8px; font-size: 0.85rem; flex: 1; color: white; border: none; border-radius: 4px; cursor: pointer; font-weight: bold; min-width: 30%;}
         .btn-move { background: #8b5cf6; } .btn-move:hover { background: #7c3aed; }
         .btn-edit { background: #f59e0b; } .btn-edit:hover { background: #d97706; }
         .btn-delete { background: #ef4444; } .btn-delete:hover { background: #dc2626; }
         .btn-continue { background: #10b981; } .btn-continue:hover { background: #059669; }
         .btn-edit-shape { background: #0284c7; } .btn-edit-shape:hover { background: #0369a1; }
-        
         .btn-folder { display: block; background: #3b82f6; color: white; padding: 10px; text-align: center; border-radius: 6px; text-decoration: none; font-weight: bold; margin-top: 10px; font-size: 0.9rem; transition: 0.2s;}
         .btn-folder:hover { background: #2563eb; }
 
@@ -117,6 +114,7 @@
         .station-label:hover { background: #f1f5f9; border-color: #94a3b8; }
         .station-label input { width: 16px; height: 16px; accent-color: #0284c7; cursor:pointer; margin:0;}
 
+        /* CSS Tùy chỉnh cho Marker Cluster để đẹp hơn */
         .marker-cluster-small { background-color: rgba(181, 226, 140, 0.6); }
         .marker-cluster-small div { background-color: rgba(110, 204, 57, 0.6); }
         .marker-cluster-medium { background-color: rgba(241, 211, 87, 0.6); }
@@ -255,13 +253,13 @@
     L.marker([21.028511, 105.804817], { icon: hanoiIcon, interactive: false }).addTo(nationalLayer);
 
     var hoangSaIcon = L.divIcon({
-        html: '<div style="font-size: 13px; font-weight: bold; color: #ef4444; text-shadow: 1px 1px 0 #fff, -1px -1px 0 #fff, 1px -1px 0 #fff, -1px 1px 0 #fff; white-space: nowrap;">QĐ. Hoàng Sa (Việt Nam)</div>',
+        html: '<div style="font-size: 13px; font-weight: bold; color: #ef4444; text-shadow: 1px 1px 0 #fff, -1px -1px 0 #fff, 1px -1px 0 #fff, -1px 1px 0 #fff; white-space: nowrap;">🇻🇳 QĐ. Hoàng Sa (Việt Nam)</div>',
         className: '', iconSize: [150, 20], iconAnchor: [75, 10]
     });
     L.marker([16.5, 112.0], { icon: hoangSaIcon, interactive: false }).addTo(nationalLayer);
 
     var truongSaIcon = L.divIcon({
-        html: '<div style="font-size: 13px; font-weight: bold; color: #ef4444; text-shadow: 1px 1px 0 #fff, -1px -1px 0 #fff, 1px -1px 0 #fff, -1px 1px 0 #fff; white-space: nowrap;">QĐ. Trường Sa (Việt Nam)</div>',
+        html: '<div style="font-size: 13px; font-weight: bold; color: #ef4444; text-shadow: 1px 1px 0 #fff, -1px -1px 0 #fff, 1px -1px 0 #fff, -1px 1px 0 #fff; white-space: nowrap;">🇻🇳 QĐ. Trường Sa (Việt Nam)</div>',
         className: '', iconSize: [150, 20], iconAnchor: [75, 10]
     });
     L.marker([10.0, 114.0], { icon: truongSaIcon, interactive: false }).addTo(nationalLayer);
@@ -278,7 +276,6 @@
         { position: 'topright' }
     ).addTo(map);
 
-    // Kích hoạt thư viện Draw ẩn bên dưới để xài tính năng chỉnh sửa hình dáng
     var drawControl = new L.Control.Draw({ position: 'topright', edit: { featureGroup: drawnItems }, draw: false }); 
     map.addControl(drawControl);
 
@@ -386,8 +383,9 @@
 
     var currentMode = null; var currentTitle = ""; var currentColor = null; var currentDash = null; var currentPolyline = null;
     let isMeasuring = false; let measureLine = null; let measurePoints = []; let measureTooltip = null;
+    
     window.movingLayerId = null; 
-    window.editingLayerId = null; // Quản lý ID đường dây đang được sửa hình dáng
+    window.editingLayerId = null;
 
     var polygonDrawer = new L.Draw.Polygon(map, {
         shapeOptions: { color: '#e11d48', weight: 3, dashArray: '5, 5', fillOpacity: 0.2 }
@@ -491,16 +489,20 @@
     }
 
     function cancelDrawing() {
+        // Tắt sửa mốc
         if (window.editingLayerId) {
             saveEditShape();
             return;
         }
+        // Tắt dời cột
         if (window.movingLayerId) { 
             window.movingLayerId = null; 
             document.getElementById('map').classList.remove('drawing-mode-active');
             document.getElementById('draw-hint').style.display = 'none';
         }
+        // Tắt vẽ dây
         if (currentPolyline) { 
+            // Ấn ESC vẫn lưu đường dây nếu đã vẽ > 1 điểm
             if (currentPolyline.getLatLngs().length > 1) {
                 finalizePolyline(currentPolyline);
             } else {
@@ -522,7 +524,6 @@
             else cancelDrawing(); 
             return; 
         }
-        
         if (currentPolyline && currentPolyline.getLatLngs().length > 1) finishDrawing();
 
         currentMode = mode; currentTitle = title; currentColor = color; currentDash = dashArray; 
@@ -534,7 +535,7 @@
         
         var hint = document.getElementById('draw-hint'); hint.style.display = 'block';
         if (mode.includes('dz') || mode.includes('cn')) {
-            hint.innerHTML = `🖱️ Click để vẽ từng điểm đường dây.<br><button onclick="finishDrawing()" style="margin-top:8px; padding:6px 20px; background:#16a34a; color:white; border:none; border-radius:6px; font-weight:bold; cursor:pointer; font-size:14px; box-shadow: 0 4px 6px rgba(0,0,0,0.2);">💾 XONG / LƯU LẠI</button><br><span class='hint-esc' style="display:inline-block; margin-top:5px;">💡 Hoặc nhấn ESC / Enter để hoàn thành.</span>`;
+            hint.innerHTML = "🖱️ Click từng điểm để vẽ.<br><span class='hint-esc'>💡 Nhấn ESC, Enter, hoặc đúp chuột để LƯU</span>";
         } else {
             hint.innerHTML = "🖱️ Click vào bản đồ để cắm thiết bị.<br><span class='hint-esc'>💡 Nhấn ESC hoặc click lại nút để TẮT</span>";
         }
@@ -554,6 +555,7 @@
 
     function addPointToLine(latlng) {
         if (!currentPolyline) {
+            // interactive: false để vẽ mượt, không bị chặn click đúp
             let style = { color: currentColor, weight: 4, opacity: 0.9, interactive: false }; 
             if (currentDash) style.dashArray = currentDash;
             currentPolyline = L.polyline([latlng], style).addTo(map);
@@ -565,7 +567,7 @@
     }
 
     map.on('click', function(e) {
-        if (window.editingLayerId) return; // Chặn click khi đang kéo sửa hình dáng dây
+        if (window.editingLayerId) return; // Đang sửa mốc chặn tạo mới
 
         if (window.movingLayerId) {
             var layerToMove = drawnItems.getLayer(window.movingLayerId);
@@ -602,8 +604,9 @@
         }
     });
 
+    // CHẠM VÀO CỘT KHI ĐANG VẼ SẼ NỐI DÂY VÀO ĐÓ
     drawnItems.on('click', function(e) {
-        if (window.editingLayerId) return; // Đang sửa mốc kéo thả thì chặn các popup khác
+        if (window.editingLayerId) return;
 
         if (window.movingLayerId) {
             var layerToMove = drawnItems.getLayer(window.movingLayerId);
@@ -635,7 +638,7 @@
 
     map.on('dblclick', finishDrawing); map.on('contextmenu', finishDrawing);
     
-    window.finishDrawing = function(e) {
+    function finishDrawing(e) {
         if (e && e.originalEvent) e.originalEvent.preventDefault();
         if (isMeasuring) { isMeasuring = false; document.getElementById('draw-hint').innerHTML = "📏 Đo xong. Nhấn <b>ESC</b> để xóa."; return; }
         if (currentPolyline) { 
@@ -646,34 +649,20 @@
             }
             currentPolyline = null; 
         }
-        document.getElementById('draw-hint').style.display = 'none';
-        document.getElementById('map').classList.remove('drawing-mode-active');
-        document.querySelectorAll('.tool-btn').forEach(b => b.classList.remove('active'));
-        currentMode = null;
-    };
+    }
 
     function finalizePolyline(polyLayer) {
-        map.removeLayer(polyLayer); 
+        if (map.hasLayer(polyLayer)) map.removeLayer(polyLayer); 
         polyLayer.setStyle({ interactive: true }); 
         
         let latlngs = polyLayer.getLatLngs(); 
         let dist = 0;
         for(let i=0; i<latlngs.length-1; i++) dist += map.distance(latlngs[i], latlngs[i+1]);
-        
         polyLayer.options.customData.length = dist; 
         
-        drawnItems.removeLayer(polyLayer); // Đảm bảo không bị trùng lặp
-        drawnItems.addLayer(polyLayer); 
+        if (!drawnItems.hasLayer(polyLayer)) drawnItems.addLayer(polyLayer); 
         
-        let isContinuing = polyLayer._isContinuing;
-        delete polyLayer._isContinuing;
-
-        if (!isContinuing) {
-            editLayerData(L.stamp(polyLayer), true);
-        } else {
-            updatePopupContent(polyLayer);
-        }
-        
+        editLayerData(L.stamp(polyLayer), true);
         updateStationFilterUI('Chưa phân trạm'); 
         autoSaveToCloud(); 
     }
@@ -735,7 +724,6 @@
         return match ? `https://drive.google.com/uc?export=view&id=${match[1]}` : url.trim(); 
     }
 
-    // CHỨC NĂNG DỜI CỘT ĐIỆN
     window.startMoveLayer = function(layerId) {
         var layer = drawnItems.getLayer(layerId);
         if (!layer) return;
@@ -748,14 +736,13 @@
         hint.innerHTML = "📍 <b>Chế độ Dời vị trí:</b> Click vào chỗ trống trên bản đồ để chuyển thiết bị tới đó.<br><span class='hint-esc'>💡 Nhấn ESC để HỦY</span>";
     };
 
-    // CHỨC NĂNG VẼ TIẾP ĐƯỜNG DÂY
+    // 1. CHỨC NĂNG VẼ TIẾP ĐƯỜNG DÂY
     window.continueLine = function(layerId) {
         var layer = drawnItems.getLayer(layerId);
         if (!layer) return;
         map.closePopup();
         
         currentPolyline = layer;
-        currentPolyline._isContinuing = true; // Cờ đánh dấu để lúc lưu không hiện form Thêm mới
         
         let custom = layer.options.customData || {};
         currentMode = custom.type || 'dz04'; 
@@ -766,10 +753,10 @@
         document.getElementById('map').classList.add('drawing-mode-active');
         var hint = document.getElementById('draw-hint');
         hint.style.display = 'block';
-        hint.innerHTML = `🔗 <b>Đang Vẽ Tiếp:</b> Click để nối dài đường dây.<br><button onclick="finishDrawing()" style="margin-top:8px; padding:6px 20px; background:#16a34a; color:white; border:none; border-radius:6px; font-weight:bold; cursor:pointer; font-size:14px; box-shadow: 0 4px 6px rgba(0,0,0,0.2);">💾 XONG / LƯU LẠI</button>`;
+        hint.innerHTML = `🔗 <b>Đang Vẽ Tiếp:</b> Click để nối dài dây.<br><button onclick="finishDrawing()" style="margin-top:8px; padding:6px 20px; background:#16a34a; color:white; border:none; border-radius:6px; font-weight:bold; cursor:pointer; font-size:14px; box-shadow: 0 4px 6px rgba(0,0,0,0.2);">💾 XONG / LƯU LẠI</button>`;
     };
 
-    // CHỨC NĂNG SỬA MỐC ĐƯỜNG DÂY (DỜI ĐIỂM)
+    // 2. CHỨC NĂNG SỬA MỐC ĐƯỜNG DÂY (DỜI ĐIỂM)
     window.startEditShape = function(layerId) {
         var layer = drawnItems.getLayer(layerId);
         if (!layer) return;
@@ -781,9 +768,7 @@
             
             var hint = document.getElementById('draw-hint');
             hint.style.display = 'block';
-            hint.innerHTML = `🛠️ <b>Sửa Mốc Đường Dây:</b> Nhấn giữ và kéo các ô vuông trắng để chỉnh sửa.<br><button onclick="saveEditShape()" style="margin-top:8px; padding:6px 20px; background:#16a34a; color:white; border:none; border-radius:6px; font-weight:bold; cursor:pointer; font-size:14px; box-shadow: 0 4px 6px rgba(0,0,0,0.2);">💾 LƯU LẠI</button>`;
-        } else {
-            alert("Công cụ sửa hình dáng không khả dụng.");
+            hint.innerHTML = `🛠️ <b>Sửa Mốc Dây:</b> Nhấn giữ và kéo các ô vuông để nắn dây.<br><button onclick="saveEditShape()" style="margin-top:8px; padding:6px 20px; background:#16a34a; color:white; border:none; border-radius:6px; font-weight:bold; cursor:pointer; font-size:14px; box-shadow: 0 4px 6px rgba(0,0,0,0.2);">💾 LƯU LẠI</button>`;
         }
     };
 
@@ -793,7 +778,7 @@
             if (layer && layer.editing) {
                 layer.editing.disable();
                 
-                // Tính toán lại chiều dài mới
+                // Tính toán lại chiều dài
                 let latlngs = layer.getLatLngs(); let dist = 0;
                 if (latlngs.length > 0 && !Array.isArray(latlngs[0])) {
                     for(let i=0; i<latlngs.length-1; i++) dist += map.distance(latlngs[i], latlngs[i+1]);
@@ -801,7 +786,7 @@
                     layer.options.customData.length = dist; 
                 }
                 updatePopupContent(layer);
-                autoSaveToCloud(true, "Đã cập nhật hình dáng và chiều dài đường dây!");
+                autoSaveToCloud(true, "Đã cập nhật hình dáng dây!");
             }
             window.editingLayerId = null;
             document.getElementById('draw-hint').style.display = 'none';
@@ -868,7 +853,7 @@
         var content = `<div class="popup-form"><h3>${custom.title || ''} - ${meta.name || ''}</h3>`;
         
         if (custom.length !== undefined) {
-            content += `<div style="background:#e0f2fe; color:#0369a1; padding:6px; border-radius:4px; font-size:13px; font-weight:bold; margin-bottom:8px; text-align:center; border: 1px dashed #0284c7;">📏 Tổng chiều dài: ${formatDistance(custom.length)}</div>`;
+            content += `<div style="background:#e0f2fe; color:#0369a1; padding:6px; border-radius:4px; font-size:13px; font-weight:bold; margin-bottom:8px; text-align:center; border: 1px dashed #0284c7;">📏 Chiều dài: ${formatDistance(custom.length)}</div>`;
         }
 
         if (meta.info) content += `<p style="margin:5px 0;"><b>Thông số:</b> ${meta.info}</p>`;
@@ -887,7 +872,7 @@
             }
         }
         
-        let moveBtn = (layer instanceof L.Marker) ? `<button class="btn-move" onclick="startMoveLayer(${layerId})">📍 Dời</button>` : '';
+        let moveBtn = (layer instanceof L.Marker) ? `<button class="btn-move" onclick="startMoveLayer(${layerId})">📍 Dời cột</button>` : '';
         let lineBtns = (layer instanceof L.Polyline && !(layer instanceof L.Polygon)) ? 
             `<button class="btn-continue" onclick="continueLine(${layerId})">🔗 Vẽ tiếp</button>
              <button class="btn-edit-shape" onclick="startEditShape(${layerId})">🛠️ Sửa mốc</button>` : '';
@@ -895,7 +880,7 @@
         content += `<div class="action-btns">
             ${moveBtn}
             ${lineBtns}
-            <button class="btn-edit" onclick="editLayerData(${layerId})">✏️ TTin</button>
+            <button class="btn-edit" onclick="editLayerData(${layerId})">✏️ Sửa TT</button>
             <button class="btn-delete" onclick="deleteLayerQuick(${layerId})">🗑️ Xóa</button>
         </div></div>`;
         
@@ -991,7 +976,7 @@
     map.on('zoomend', applyStationFilter);
 
     // ==========================================
-    // TÍCH HỢP GOOGLE FIREBASE REALTIME DATABASE
+    // KHÔI PHỤC LẠI HÀM LƯU GỐC AN TOÀN CHO FIREBASE
     // ==========================================
     const FIREBASE_URL = 'https://luoi-dien-van-ban-default-rtdb.asia-southeast1.firebasedatabase.app/dulieu.json';
 
@@ -1041,13 +1026,14 @@
         var hint = document.getElementById('draw-hint');
         hint.style.display = 'block'; hint.innerHTML = "💾 Đang đồng bộ lên Firebase...";
 
-        drawnItems.eachLayer(function(layer) { 
-            if (!layer.feature) { layer.feature = { type: "Feature", properties: {} }; }
-            layer.feature.properties.metadata = layer.options.metadata || { name: 'Thiết bị/Đường dây mới', info: '', tram: '', img: '', maLienKet: generateId() };
-            layer.feature.properties.customData = layer.options.customData || { type: 'tba', title: 'Thiết bị' };
-        });
-
         var data = drawnItems.toGeoJSON(); 
+        var i = 0;
+        drawnItems.eachLayer(function(layer) { 
+            if(data.features[i]) { 
+                data.features[i].properties = { metadata: layer.options.metadata, customData: layer.options.customData }; 
+            } 
+            i++; 
+        });
 
         fetch(FIREBASE_URL, {
             method: 'PUT',
