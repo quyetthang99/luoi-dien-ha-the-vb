@@ -233,7 +233,6 @@
     });
     L.control.zoom({ position: 'topright' }).addTo(map);
 
-    // CẤU HÌNH CLUSTER MỚI NHẤT
     var drawnItems = L.markerClusterGroup({
         disableClusteringAtZoom: 16, 
         maxClusterRadius: 35, 
@@ -491,7 +490,10 @@
             document.getElementById('map').classList.remove('drawing-mode-active');
             document.getElementById('draw-hint').style.display = 'none';
         }
-        if (currentPolyline) { map.removeLayer(currentPolyline); currentPolyline = null; }
+        if (currentPolyline) { 
+            map.removeLayer(currentPolyline); 
+            currentPolyline = null; 
+        }
         currentMode = null;
         document.querySelectorAll('.tool-btn').forEach(b => b.classList.remove('active'));
         document.getElementById('draw-hint').style.display = 'none';
@@ -501,29 +503,56 @@
     }
 
     function setMode(btnElement, mode, title, color = null, dashArray = null) {
-        if (currentMode === mode) { cancelDrawing(); return; }
+        if (currentMode === mode) { 
+            // CẢI TIẾN: Nếu đang vẽ đường dây mà click lại nút này -> LƯU ĐƯỜNG DÂY
+            if (currentPolyline && currentPolyline.getLatLngs().length > 1) {
+                finishDrawing();
+            } else {
+                cancelDrawing(); 
+            }
+            return; 
+        }
         currentMode = mode; currentTitle = title; currentColor = color; currentDash = dashArray; 
-        if (currentPolyline) { finalizePolyline(currentPolyline); currentPolyline = null; }
+        
+        // CẢI TIẾN: Nếu đang vẽ dở mà chuyển sang vẽ cái khác -> TỰ ĐỘNG LƯU
+        if (currentPolyline) { finishDrawing(); } 
+        
         if(isMeasuring) { toggleMeasureMode(); } 
         if(polygonDrawer) { polygonDrawer.disable(); }
 
         document.querySelectorAll('.tool-btn').forEach(b => b.classList.remove('active')); btnElement.classList.add('active');
         
         var hint = document.getElementById('draw-hint'); hint.style.display = 'block';
-        var escMsg = "<br><span class='hint-esc'>💡 Nhấn ESC hoặc click lại nút để TẮT vẽ</span>";
-        hint.innerHTML = (mode.includes('dz') || mode.includes('cn')) ? 
-            '🖱️ Click từng điểm để vẽ. <b>Click đúp</b> để hoàn thành.' + escMsg : '🖱️ Click vào bản đồ để cắm thiết bị.' + escMsg;
+        if (mode.includes('dz') || mode.includes('cn')) {
+            hint.innerHTML = "🖱️ Click từng điểm để vẽ.<br>✅ <b>Click đúp</b>, bấm <b>Enter</b>, hoặc <b>click lại nút vẽ</b> để LƯU.<br><span class='hint-esc'>❌ Nhấn phím ESC để HỦY.</span>";
+        } else {
+            hint.innerHTML = "🖱️ Click vào bản đồ để cắm thiết bị.<br><span class='hint-esc'>💡 Nhấn ESC hoặc click lại nút để TẮT</span>";
+        }
         document.getElementById('map').classList.add('drawing-mode-active');
     }
 
-    document.addEventListener('keydown', function(event) { if(event.key === "Escape") { closeGallery(); cancelDrawing(); } });
+    // BẮT SỰ KIỆN BÀN PHÍM
+    document.addEventListener('keydown', function(event) { 
+        if (event.key === "Escape") { 
+            closeGallery(); cancelDrawing(); 
+        } 
+        if (event.key === "Enter") {
+            if (currentPolyline) finishDrawing();
+        }
+    });
 
     function addPointToLine(latlng) {
         if (!currentPolyline) {
-            let style = { color: currentColor, weight: 4, opacity: 0.9 }; if (currentDash) style.dashArray = currentDash;
-            currentPolyline = L.polyline([latlng], style).addTo(drawnItems);
+            // CẢI TIẾN: Thêm interactive: false để đường dây KHÔNG cản trở click chuột
+            let style = { color: currentColor, weight: 4, opacity: 0.9, interactive: false }; 
+            if (currentDash) style.dashArray = currentDash;
+            
+            // CẢI TIẾN: Tạm thời chỉ add vào map (không add vào cụm) để vẽ mượt hơn
+            currentPolyline = L.polyline([latlng], style).addTo(map); 
             currentPolyline.options.customData = { type: currentMode, title: currentTitle, color: currentColor, dash: currentDash };
-        } else { currentPolyline.addLatLng(latlng); }
+        } else { 
+            currentPolyline.addLatLng(latlng); 
+        }
     }
 
     map.on('click', function(e) {
@@ -578,18 +607,33 @@
     });
 
     map.on('dblclick', finishDrawing); map.on('contextmenu', finishDrawing);
+    
     function finishDrawing(e) {
-        if (e) e.originalEvent.preventDefault();
+        if (e && e.originalEvent) e.originalEvent.preventDefault();
         if (isMeasuring) { isMeasuring = false; document.getElementById('draw-hint').innerHTML = "📏 Đo xong. Nhấn <b>ESC</b> để xóa."; return; }
-        if (currentPolyline) { finalizePolyline(currentPolyline); currentPolyline = null; }
+        if (currentPolyline) { 
+            // CẢI TIẾN: Tránh lưu những đường dây chỉ có 1 điểm (bấm nhầm click)
+            if (currentPolyline.getLatLngs().length > 1) {
+                finalizePolyline(currentPolyline); 
+            } else {
+                map.removeLayer(currentPolyline);
+            }
+            currentPolyline = null; 
+        }
     }
 
     function finalizePolyline(polyLayer) {
-        let latlngs = polyLayer.getLatLngs(); let dist = 0;
+        map.removeLayer(polyLayer); // Rút đường dây khỏi layer map tạm
+        polyLayer.setStyle({ interactive: true }); // Mở khóa cho phép click chuột lại
+        
+        let latlngs = polyLayer.getLatLngs(); 
+        let dist = 0;
         for(let i=0; i<latlngs.length-1; i++) dist += map.distance(latlngs[i], latlngs[i+1]);
         if(!polyLayer.options.customData) polyLayer.options.customData = {};
         polyLayer.options.customData.length = dist; 
-        drawnItems.addLayer(polyLayer); editLayerData(L.stamp(polyLayer), true);
+        
+        drawnItems.addLayer(polyLayer); // Gắn chính thức vào hệ thống
+        editLayerData(L.stamp(polyLayer), true);
         
         updateStationFilterUI('Chưa phân trạm'); 
         autoSaveToCloud(); 
