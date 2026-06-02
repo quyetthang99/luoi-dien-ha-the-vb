@@ -491,7 +491,6 @@
             document.getElementById('draw-hint').style.display = 'none';
         }
         if (currentPolyline) { 
-            // CẢI TIẾN: Thay vì xóa, nếu lỡ bấm ESC mà đã vẽ > 1 điểm thì TỰ ĐỘNG LƯU
             if (currentPolyline.getLatLngs().length > 1) {
                 finalizePolyline(currentPolyline);
             } else {
@@ -514,7 +513,6 @@
             return; 
         }
         
-        // CẢI TIẾN: Nếu đang vẽ dở mà chuyển sang vẽ thiết bị khác -> TỰ LƯU ĐƯỜNG DÂY CŨ LẠI
         if (currentPolyline && currentPolyline.getLatLngs().length > 1) finishDrawing();
 
         currentMode = mode; currentTitle = title; currentColor = color; currentDash = dashArray; 
@@ -545,12 +543,10 @@
 
     function addPointToLine(latlng) {
         if (!currentPolyline) {
-            // CẢI TIẾN: Để interactive = false giúp đường dây không cản trở việc click đúp
             let style = { color: currentColor, weight: 4, opacity: 0.9, interactive: false }; 
             if (currentDash) style.dashArray = currentDash;
             currentPolyline = L.polyline([latlng], style).addTo(map);
             currentPolyline.options.customData = { type: currentMode, title: currentTitle, color: currentColor, dash: currentDash };
-            // FIX LỖI CRASH DATA: Cấp metadata cho đường dây ngay từ điểm đầu tiên
             currentPolyline.options.metadata = { name: 'Đường dây mới', info: '', tram: '', img: '', maLienKet: generateId() };
         } else { 
             currentPolyline.addLatLng(latlng); 
@@ -593,14 +589,34 @@
         }
     });
 
+    // KHÔI PHỤC ĐOẠN CODE BỊ XÓA NHẦM TỪ BẢN TRƯỚC: XỬ LÝ KHI CLICK VÀO CỘT ĐIỆN
     drawnItems.on('click', function(e) {
+        // Đang ở chế độ dời vị trí
+        if (window.movingLayerId) {
+            var layerToMove = drawnItems.getLayer(window.movingLayerId);
+            if (layerToMove && layerToMove instanceof L.Marker) {
+                layerToMove.setLatLng(e.latlng);
+                window.movingLayerId = null;
+                document.getElementById('map').classList.remove('drawing-mode-active');
+                document.getElementById('draw-hint').style.display = 'none';
+                autoSaveToCloud(true, "Đã dời vị trí thiết bị thành công!");
+            }
+            return;
+        }
+
+        // Đang ở chế độ đo khoảng cách
         if (isMeasuring) {
             measurePoints.push(e.latlng);
             if (measurePoints.length === 1) {
                 measureLine = L.polyline(measurePoints, {color: '#ef4444', weight: 4, dashArray: '5, 8'}).addTo(map);
                 measureTooltip = L.tooltip({permanent: true, direction: 'right', className: 'measure-tooltip'}).setLatLng(e.latlng).addTo(map).setContent('0 m');
             } else { measureLine.setLatLngs(measurePoints); }
-            setTimeout(() => { if (e.layer && e.layer.closePopup) e.layer.closePopup(); }, 10);
+            return;
+        }
+        
+        // Đang ở chế độ vẽ đường dây (click vào cột để nối dây)
+        if (currentMode && (currentMode.includes('dz') || currentMode.includes('cn'))) {
+            addPointToLine(e.latlng); 
             return;
         }
     });
@@ -622,7 +638,7 @@
 
     function finalizePolyline(polyLayer) {
         map.removeLayer(polyLayer); 
-        polyLayer.setStyle({ interactive: true }); // Mở khóa cho phép bấm sửa lại
+        polyLayer.setStyle({ interactive: true }); 
         
         let latlngs = polyLayer.getLatLngs(); 
         let dist = 0;
@@ -675,7 +691,14 @@
         autoSaveToCloud(); 
     }
 
+    // NGĂN POPUP MỞ LÊN KHI ĐANG VẼ DÂY
     map.on('popupopen', function(e) {
+        // KHÓA POPUP KHI ĐANG VẼ HOẶC ĐO
+        if (currentMode || isMeasuring || window.movingLayerId) {
+            map.closePopup();
+            return;
+        }
+
         var layer = e.popup._source;
         if (layer && layer instanceof L.Polyline && layer.getLatLngs && !(layer instanceof L.Polygon)) { 
             layer.setStyle({ weight: 10, opacity: 1, className: 'highlighted-line' }); if (layer.bringToFront) layer.bringToFront();
@@ -950,7 +973,6 @@
         var hint = document.getElementById('draw-hint');
         hint.style.display = 'block'; hint.innerHTML = "💾 Đang đồng bộ lên Firebase...";
 
-        // FIX LỖI CRASH DATA KHI SAVE: Đóng gói metadata cứng vào Feature trước khi đẩy lên Firebase
         drawnItems.eachLayer(function(layer) { 
             if (!layer.feature) { layer.feature = { type: "Feature", properties: {} }; }
             layer.feature.properties.metadata = layer.options.metadata || { name: 'Thiết bị/Đường dây mới', info: '', tram: '', img: '', maLienKet: generateId() };
