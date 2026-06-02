@@ -632,6 +632,22 @@
         
         if (currentMode && (currentMode.includes('dz') || currentMode.includes('cn'))) {
             addPointToLine(e.latlng); 
+
+            // ---> THÊM LOGIC TỰ NHẬN TRẠM Ở ĐÂY <---
+            if (e.layer && e.layer.options && e.layer.options.metadata) {
+                let clickedTram = e.layer.options.metadata.tram;
+                // Nếu cột được click có tên trạm
+                if (clickedTram && clickedTram.trim() !== "") {
+                    if (currentPolyline) {
+                        // Nếu đường dây đang vẽ chưa có tên trạm thì gán tên trạm của cột vào
+                        if (!currentPolyline.options.metadata.tram || currentPolyline.options.metadata.tram === "") {
+                            currentPolyline.options.metadata.tram = clickedTram.trim();
+                        }
+                    }
+                }
+            }
+            // ---------------------------------------
+
             return;
         }
     });
