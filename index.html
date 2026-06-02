@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>GIS Lưới Điện Chuyên Nghiệp - Lào Cai</title>
+    <title>GIS Hạ Thế Văn Bàn - by Quyết Thắng</title>
     
     <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/leaflet.draw/1.0.4/leaflet.draw.css" />
@@ -143,7 +143,7 @@
     <div class="header" onclick="toggleSidebar()">
         <div>
             SƠ ĐỒ LƯỚI ĐIỆN HẠ THẾ<br>
-            <span style="font-size: 0.85em; color: #bae6fd;">ĐIỆN LỰC VĂN BÀN</span>
+            <span style="font-size: 0.85em; color: #bae6fd;">ĐIỆN LỰC VĂN BÀN - BY QUYẾT THẮNG</span>
         </div>
         <div id="sidebar-icon">▼</div>
     </div>
@@ -253,14 +253,14 @@
 
     // Icon Hoàng Sa
     var hoangSaIcon = L.divIcon({
-        html: '<div style="font-size: 13px; font-weight: bold; color: #ef4444; text-shadow: 1px 1px 0 #fff, -1px -1px 0 #fff, 1px -1px 0 #fff, -1px 1px 0 #fff; white-space: nowrap;">🇻🇳 QĐ. Hoàng Sa (Việt Nam)</div>',
+        html: '<div style="font-size: 13px; font-weight: bold; color: #ef4444; text-shadow: 1px 1px 0 #fff, -1px -1px 0 #fff, 1px -1px 0 #fff, -1px 1px 0 #fff; white-space: nowrap;">QĐ. Hoàng Sa (Việt Nam)</div>',
         className: '', iconSize: [150, 20], iconAnchor: [75, 10]
     });
     L.marker([16.5, 112.0], { icon: hoangSaIcon, interactive: false }).addTo(nationalLayer);
 
     // Icon Trường Sa
     var truongSaIcon = L.divIcon({
-        html: '<div style="font-size: 13px; font-weight: bold; color: #ef4444; text-shadow: 1px 1px 0 #fff, -1px -1px 0 #fff, 1px -1px 0 #fff, -1px 1px 0 #fff; white-space: nowrap;">🇻🇳 QĐ. Trường Sa (Việt Nam)</div>',
+        html: '<div style="font-size: 13px; font-weight: bold; color: #ef4444; text-shadow: 1px 1px 0 #fff, -1px -1px 0 #fff, 1px -1px 0 #fff, -1px 1px 0 #fff; white-space: nowrap;">QĐ. Trường Sa (Việt Nam)</div>',
         className: '', iconSize: [150, 20], iconAnchor: [75, 10]
     });
     L.marker([10.0, 114.0], { icon: truongSaIcon, interactive: false }).addTo(nationalLayer);
@@ -621,8 +621,23 @@
 
     map.on('popupclose', function(e) {
         var layer = e.popup._source;
+        
         if (layer && layer instanceof L.Polyline && layer.getLatLngs && map.hasLayer(layer) && !(layer instanceof L.Polygon)) {
             let custom = layer.options.customData || {}; layer.setStyle({ weight: 4, opacity: 0.9, color: custom.color || '#3388ff', dashArray: custom.dash || null, className: '' });
+        }
+
+        if (tempMarker && layer === tempMarker) {
+            map.removeLayer(tempMarker);
+            tempMarker = null;
+        }
+
+        if (userLocationMarker && layer === userLocationMarker) {
+            map.removeLayer(userLocationMarker);
+            userLocationMarker = null;
+            if (userLocationCircle) {
+                map.removeLayer(userLocationCircle);
+                userLocationCircle = null;
+            }
         }
     });
 
