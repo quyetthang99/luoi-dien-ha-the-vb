@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>GIS Hạ Thế Văn Bàn - by Quyết Thắng</title>
+    <title>GIS Hạ Thế Văn Bàn</title>
     
     <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/leaflet.draw/1.0.4/leaflet.draw.css" />
@@ -77,8 +77,9 @@
         .popup-img:hover { filter: brightness(0.9); box-shadow: 0 4px 8px rgba(0,0,0,0.2); }
         .img-count-badge { text-align: center; font-size: 11px; color: #64748b; margin-top: 5px; font-weight: bold; }
         
-        .action-btns { display: flex; gap: 5px; margin-top: 10px; }
-        .action-btns button { padding: 8px; font-size: 0.85rem; flex: 1; color: white; border: none; border-radius: 4px; cursor: pointer; font-weight: bold;}
+        .action-btns { display: flex; gap: 5px; margin-top: 10px; flex-wrap: wrap; }
+        .action-btns button { padding: 8px; font-size: 0.85rem; flex: 1; color: white; border: none; border-radius: 4px; cursor: pointer; font-weight: bold; min-width: 30%;}
+        .btn-move { background: #8b5cf6; } .btn-move:hover { background: #7c3aed; }
         .btn-edit { background: #f59e0b; } .btn-edit:hover { background: #d97706; }
         .btn-delete { background: #ef4444; } .btn-delete:hover { background: #dc2626; }
         .btn-folder { display: block; background: #3b82f6; color: white; padding: 10px; text-align: center; border-radius: 6px; text-decoration: none; font-weight: bold; margin-top: 10px; font-size: 0.9rem; transition: 0.2s;}
@@ -222,7 +223,6 @@
     var osm = L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', { attribution: 'OSM' });
     var satellite = L.tileLayer('https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}', { attribution: 'Esri' });
 
-    // TỐI ƯU HÓA 1: preferCanvas = true giúp GPU xử lý vẽ hàng ngàn đường dây mượt mà
     var map = L.map('map', { 
         center: [22.4856, 104.1481], 
         zoom: 12, 
@@ -233,46 +233,39 @@
     });
     L.control.zoom({ position: 'topright' }).addTo(map);
 
-    // TỐI ƯU HÓA 2: Sử dụng MarkerClusterGroup thay vì FeatureGroup để gom cụm 9500 cột điện
     var drawnItems = L.markerClusterGroup({
-        disableClusteringAtZoom: 17, // Zoom gần đến mức 17 sẽ rã cụm ra để xem chi tiết
-        maxClusterRadius: 60, // Bán kính gom cụm
-        polygonOptions: { fillOpacity: 0, opacity: 0 } // Tắt cái viền xanh khi hover vào cụm
+        disableClusteringAtZoom: 17, 
+        maxClusterRadius: 60, 
+        polygonOptions: { fillOpacity: 0, opacity: 0 } 
     }); 
     map.addLayer(drawnItems);
     
-    // LỚP BẢN ĐỒ CHỦ QUYỀN (Mặc định luôn hiển thị)
     var nationalLayer = new L.FeatureGroup();
 
-    // Icon Hà Nội
     var hanoiIcon = L.divIcon({
         html: '<div style="font-size: 20px; color: #ef4444; text-shadow: 1px 1px 2px #fff, -1px -1px 2px #fff; text-align: center; margin-top:-5px;">★</div>',
         className: '', iconSize: [24, 24], iconAnchor: [12, 12]
     });
     L.marker([21.028511, 105.804817], { icon: hanoiIcon, interactive: false }).addTo(nationalLayer);
 
-    // Icon Hoàng Sa
     var hoangSaIcon = L.divIcon({
         html: '<div style="font-size: 13px; font-weight: bold; color: #ef4444; text-shadow: 1px 1px 0 #fff, -1px -1px 0 #fff, 1px -1px 0 #fff, -1px 1px 0 #fff; white-space: nowrap;">QĐ. Hoàng Sa (Việt Nam)</div>',
         className: '', iconSize: [150, 20], iconAnchor: [75, 10]
     });
     L.marker([16.5, 112.0], { icon: hoangSaIcon, interactive: false }).addTo(nationalLayer);
 
-    // Icon Trường Sa
     var truongSaIcon = L.divIcon({
         html: '<div style="font-size: 13px; font-weight: bold; color: #ef4444; text-shadow: 1px 1px 0 #fff, -1px -1px 0 #fff, 1px -1px 0 #fff, -1px 1px 0 #fff; white-space: nowrap;">QĐ. Trường Sa (Việt Nam)</div>',
         className: '', iconSize: [150, 20], iconAnchor: [75, 10]
     });
     L.marker([10.0, 114.0], { icon: truongSaIcon, interactive: false }).addTo(nationalLayer);
 
-    // Thêm Lớp Chủ Quyền vào Bản đồ
     nationalLayer.addTo(map);
 
     var boundaryLayer = new L.FeatureGroup(); var bounds = [[21.85, 103.5], [22.85, 104.6]]; 
     L.rectangle(bounds, { color: "#f97316", weight: 3, fillOpacity: 0.05, dashArray: '8, 10' }).addTo(boundaryLayer);
     map.addLayer(boundaryLayer);
 
-    // Đã xóa Lớp Chủ Quyền khỏi bảng điều khiển để không thể tắt
     L.control.layers(
         { "🗺️ Bản đồ Sạch (Khuyên dùng)": positron, "🛣️ Bản đồ Giao thông": osm, "🛰️ Bản đồ Vệ tinh": satellite },
         { "⚡ Lưới điện (Tự vẽ)": drawnItems, "🚩 Ranh giới Lào Cai": boundaryLayer },
@@ -359,7 +352,14 @@
                 });
 
             },
-            function(error) { hint.style.display = 'none'; alert("Lỗi GPS: " + error.message); },
+            function(error) { 
+                hint.style.display = 'none'; 
+                if (error.code === 1) { 
+                    alert("❌ Không thể lấy vị trí!\nBạn (hoặc trình duyệt) đã từ chối quyền truy cập GPS. Vui lòng cấp quyền 'Vị trí' cho trang web này trong cài đặt trình duyệt để sử dụng tính năng.");
+                } else {
+                    alert("Lỗi GPS: " + error.message); 
+                }
+            },
             { enableHighAccuracy: true, timeout: 15000, maximumAge: 0 } 
         );
     }
@@ -379,6 +379,7 @@
 
     var currentMode = null; var currentTitle = ""; var currentColor = null; var currentDash = null; var currentPolyline = null;
     let isMeasuring = false; let measureLine = null; let measurePoints = []; let measureTooltip = null;
+    window.movingLayerId = null; // Biến lưu thiết bị đang muốn dời vị trí
 
     var polygonDrawer = new L.Draw.Polygon(map, {
         shapeOptions: { color: '#e11d48', weight: 3, dashArray: '5, 5', fillOpacity: 0.2 }
@@ -482,6 +483,11 @@
     }
 
     function cancelDrawing() {
+        if (window.movingLayerId) { 
+            window.movingLayerId = null; 
+            document.getElementById('map').classList.remove('drawing-mode-active');
+            document.getElementById('draw-hint').style.display = 'none';
+        }
         if (currentPolyline) { map.removeLayer(currentPolyline); currentPolyline = null; }
         currentMode = null;
         document.querySelectorAll('.tool-btn').forEach(b => b.classList.remove('active'));
@@ -518,6 +524,19 @@
     }
 
     map.on('click', function(e) {
+        // Ưu tiên xử lý lệnh Dời vị trí trước
+        if (window.movingLayerId) {
+            var layerToMove = drawnItems.getLayer(window.movingLayerId);
+            if (layerToMove && layerToMove instanceof L.Marker) {
+                layerToMove.setLatLng(e.latlng);
+                window.movingLayerId = null;
+                document.getElementById('map').classList.remove('drawing-mode-active');
+                document.getElementById('draw-hint').style.display = 'none';
+                autoSaveToCloud(true, "Đã dời vị trí thiết bị thành công!");
+            }
+            return;
+        }
+
         if (isMeasuring) {
             measurePoints.push(e.latlng);
             if (measurePoints.length === 1) {
@@ -646,6 +665,18 @@
         return match ? `https://drive.google.com/uc?export=view&id=${match[1]}` : url.trim(); 
     }
 
+    window.startMoveLayer = function(layerId) {
+        var layer = drawnItems.getLayer(layerId);
+        if (!layer) return;
+        map.closePopup();
+        window.movingLayerId = layerId;
+        
+        document.getElementById('map').classList.add('drawing-mode-active');
+        var hint = document.getElementById('draw-hint');
+        hint.style.display = 'block';
+        hint.innerHTML = "📍 <b>Chế độ Dời vị trí:</b> Click vào chỗ trống trên bản đồ để chuyển thiết bị tới đó.<br><span class='hint-esc'>💡 Nhấn ESC để HỦY</span>";
+    };
+
     window.editLayerData = function(layerId, isNew = false) {
         var layer = drawnItems.getLayer(layerId); if(!layer) return;
         var meta = layer.options.metadata || {}; var custom = layer.options.customData || {};
@@ -724,7 +755,16 @@
                 if(imgArr.length > 1) { content += `<div class="img-count-badge">📷 Có ${imgArr.length} ảnh. Click vào ảnh để xem toàn bộ.</div>`; }
             }
         }
-        content += `<div class="action-btns"><button class="btn-edit" onclick="editLayerData(${layerId})">✏️ Sửa</button><button class="btn-delete" onclick="deleteLayerQuick(${layerId})">🗑️ Xóa</button></div></div>`;
+        
+        // Thêm nút Dời vị trí cho Marker
+        let moveBtn = (layer instanceof L.Marker) ? `<button class="btn-move" onclick="startMoveLayer(${layerId})">📍 Dời</button>` : '';
+        
+        content += `<div class="action-btns">
+            ${moveBtn}
+            <button class="btn-edit" onclick="editLayerData(${layerId})">✏️ Sửa</button>
+            <button class="btn-delete" onclick="deleteLayerQuick(${layerId})">🗑️ Xóa</button>
+        </div></div>`;
+        
         layer.bindPopup(content); if(layer.isPopupOpen()) layer.setPopupContent(content);
     }
 
