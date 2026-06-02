@@ -144,7 +144,7 @@
     <div class="header" onclick="toggleSidebar()">
         <div>
             SƠ ĐỒ LƯỚI ĐIỆN HẠ THẾ<br>
-            <span style="font-size: 0.85em; color: #bae6fd;">ĐIỆN LỰC VĂN BÀN - BY QUYẾT THẮNG</span>
+            <span style="font-size: 0.85em; color: #bae6fd;">ĐIỆN LỰC VĂN BÀN</span>
         </div>
         <div id="sidebar-icon">▼</div>
     </div>
@@ -233,9 +233,12 @@
     });
     L.control.zoom({ position: 'topright' }).addTo(map);
 
+    // CẤU HÌNH CLUSTER MỚI NHẤT
     var drawnItems = L.markerClusterGroup({
-        disableClusteringAtZoom: 17, 
-        maxClusterRadius: 60, 
+        disableClusteringAtZoom: 16, 
+        maxClusterRadius: 35, 
+        spiderfyOnMaxZoom: true,
+        zoomToBoundsOnClick: true,
         polygonOptions: { fillOpacity: 0, opacity: 0 } 
     }); 
     map.addLayer(drawnItems);
@@ -379,7 +382,7 @@
 
     var currentMode = null; var currentTitle = ""; var currentColor = null; var currentDash = null; var currentPolyline = null;
     let isMeasuring = false; let measureLine = null; let measurePoints = []; let measureTooltip = null;
-    window.movingLayerId = null; // Biến lưu thiết bị đang muốn dời vị trí
+    window.movingLayerId = null; 
 
     var polygonDrawer = new L.Draw.Polygon(map, {
         shapeOptions: { color: '#e11d48', weight: 3, dashArray: '5, 5', fillOpacity: 0.2 }
@@ -524,7 +527,6 @@
     }
 
     map.on('click', function(e) {
-        // Ưu tiên xử lý lệnh Dời vị trí trước
         if (window.movingLayerId) {
             var layerToMove = drawnItems.getLayer(window.movingLayerId);
             if (layerToMove && layerToMove instanceof L.Marker) {
@@ -756,7 +758,6 @@
             }
         }
         
-        // Thêm nút Dời vị trí cho Marker
         let moveBtn = (layer instanceof L.Marker) ? `<button class="btn-move" onclick="startMoveLayer(${layerId})">📍 Dời</button>` : '';
         
         content += `<div class="action-btns">
