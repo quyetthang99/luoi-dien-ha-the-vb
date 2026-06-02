@@ -246,21 +246,21 @@
 
     // Icon Hà Nội
     var hanoiIcon = L.divIcon({
-        html: '<div style="font-size: 20px; color: #ef4444; text-shadow: 1px 1px 2px #fff, -1px -1px 2px #fff; text-align: center; margin-top:-5px;">★</div><div style="font-size: 13px; font-weight: bold; color: #b91c1c; white-space: nowrap; margin-left: -20px; text-shadow: 1px 1px 0 #fff, -1px -1px 0 #fff, 1px -1px 0 #fff, -1px 1px 0 #fff;">Thủ đô Hà Nội</div>',
+        html: '<div style="font-size: 20px; color: #ef4444; text-shadow: 1px 1px 2px #fff, -1px -1px 2px #fff; text-align: center; margin-top:-5px;">★</div>',
         className: '', iconSize: [24, 24], iconAnchor: [12, 12]
     });
     L.marker([21.028511, 105.804817], { icon: hanoiIcon, interactive: false }).addTo(nationalLayer);
 
     // Icon Hoàng Sa
     var hoangSaIcon = L.divIcon({
-        html: '<div style="font-size: 13px; font-weight: bold; color: #0369a1; text-shadow: 1px 1px 0 #fff, -1px -1px 0 #fff, 1px -1px 0 #fff, -1px 1px 0 #fff; white-space: nowrap;">🇻🇳 QĐ. Hoàng Sa (Việt Nam)</div>',
+        html: '<div style="font-size: 13px; font-weight: bold; color: #ef4444; text-shadow: 1px 1px 0 #fff, -1px -1px 0 #fff, 1px -1px 0 #fff, -1px 1px 0 #fff; white-space: nowrap;">🇻🇳 QĐ. Hoàng Sa (Việt Nam)</div>',
         className: '', iconSize: [150, 20], iconAnchor: [75, 10]
     });
     L.marker([16.5, 112.0], { icon: hoangSaIcon, interactive: false }).addTo(nationalLayer);
 
     // Icon Trường Sa
     var truongSaIcon = L.divIcon({
-        html: '<div style="font-size: 13px; font-weight: bold; color: #0369a1; text-shadow: 1px 1px 0 #fff, -1px -1px 0 #fff, 1px -1px 0 #fff, -1px 1px 0 #fff; white-space: nowrap;">🇻🇳 QĐ. Trường Sa (Việt Nam)</div>',
+        html: '<div style="font-size: 13px; font-weight: bold; color: #ef4444; text-shadow: 1px 1px 0 #fff, -1px -1px 0 #fff, 1px -1px 0 #fff, -1px 1px 0 #fff; white-space: nowrap;">🇻🇳 QĐ. Trường Sa (Việt Nam)</div>',
         className: '', iconSize: [150, 20], iconAnchor: [75, 10]
     });
     L.marker([10.0, 114.0], { icon: truongSaIcon, interactive: false }).addTo(nationalLayer);
@@ -272,9 +272,10 @@
     L.rectangle(bounds, { color: "#f97316", weight: 3, fillOpacity: 0.05, dashArray: '8, 10' }).addTo(boundaryLayer);
     map.addLayer(boundaryLayer);
 
+    // Đã xóa Lớp Chủ Quyền khỏi bảng điều khiển để không thể tắt
     L.control.layers(
         { "🗺️ Bản đồ Sạch (Khuyên dùng)": positron, "🛣️ Bản đồ Giao thông": osm, "🛰️ Bản đồ Vệ tinh": satellite },
-        { "⚡ Lưới điện (Tự vẽ)": drawnItems, "🚩 Ranh giới Lào Cai": boundaryLayer, "🇻🇳 Chủ quyền Việt Nam": nationalLayer },
+        { "⚡ Lưới điện (Tự vẽ)": drawnItems, "🚩 Ranh giới Lào Cai": boundaryLayer },
         { position: 'topright' }
     ).addTo(map);
 
