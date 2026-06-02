@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>GIS Hạ Thế Văn Bàn</title>
+    <title>GIS Lưới Điện Chuyên Nghiệp - Lào Cai</title>
     
     <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/leaflet.draw/1.0.4/leaflet.draw.css" />
@@ -251,13 +251,13 @@
     L.marker([21.028511, 105.804817], { icon: hanoiIcon, interactive: false }).addTo(nationalLayer);
 
     var hoangSaIcon = L.divIcon({
-        html: '<div style="font-size: 13px; font-weight: bold; color: #ef4444; text-shadow: 1px 1px 0 #fff, -1px -1px 0 #fff, 1px -1px 0 #fff, -1px 1px 0 #fff; white-space: nowrap;">QĐ. Hoàng Sa (Việt Nam)</div>',
+        html: '<div style="font-size: 13px; font-weight: bold; color: #ef4444; text-shadow: 1px 1px 0 #fff, -1px -1px 0 #fff, 1px -1px 0 #fff, -1px 1px 0 #fff; white-space: nowrap;">🇻🇳 QĐ. Hoàng Sa (Việt Nam)</div>',
         className: '', iconSize: [150, 20], iconAnchor: [75, 10]
     });
     L.marker([16.5, 112.0], { icon: hoangSaIcon, interactive: false }).addTo(nationalLayer);
 
     var truongSaIcon = L.divIcon({
-        html: '<div style="font-size: 13px; font-weight: bold; color: #ef4444; text-shadow: 1px 1px 0 #fff, -1px -1px 0 #fff, 1px -1px 0 #fff, -1px 1px 0 #fff; white-space: nowrap;">QĐ. Trường Sa (Việt Nam)</div>',
+        html: '<div style="font-size: 13px; font-weight: bold; color: #ef4444; text-shadow: 1px 1px 0 #fff, -1px -1px 0 #fff, 1px -1px 0 #fff, -1px 1px 0 #fff; white-space: nowrap;">🇻🇳 QĐ. Trường Sa (Việt Nam)</div>',
         className: '', iconSize: [150, 20], iconAnchor: [75, 10]
     });
     L.marker([10.0, 114.0], { icon: truongSaIcon, interactive: false }).addTo(nationalLayer);
@@ -491,7 +491,12 @@
             document.getElementById('draw-hint').style.display = 'none';
         }
         if (currentPolyline) { 
-            map.removeLayer(currentPolyline); 
+            // CẢI TIẾN: Thay vì xóa, nếu lỡ bấm ESC mà đã vẽ > 1 điểm thì TỰ ĐỘNG LƯU
+            if (currentPolyline.getLatLngs().length > 1) {
+                finalizePolyline(currentPolyline);
+            } else {
+                map.removeLayer(currentPolyline); 
+            }
             currentPolyline = null; 
         }
         currentMode = null;
@@ -504,18 +509,15 @@
 
     function setMode(btnElement, mode, title, color = null, dashArray = null) {
         if (currentMode === mode) { 
-            // CẢI TIẾN: Nếu đang vẽ đường dây mà click lại nút này -> LƯU ĐƯỜNG DÂY
-            if (currentPolyline && currentPolyline.getLatLngs().length > 1) {
-                finishDrawing();
-            } else {
-                cancelDrawing(); 
-            }
+            if (currentPolyline && currentPolyline.getLatLngs().length > 1) finishDrawing();
+            else cancelDrawing(); 
             return; 
         }
-        currentMode = mode; currentTitle = title; currentColor = color; currentDash = dashArray; 
         
-        // CẢI TIẾN: Nếu đang vẽ dở mà chuyển sang vẽ cái khác -> TỰ ĐỘNG LƯU
-        if (currentPolyline) { finishDrawing(); } 
+        // CẢI TIẾN: Nếu đang vẽ dở mà chuyển sang vẽ thiết bị khác -> TỰ LƯU ĐƯỜNG DÂY CŨ LẠI
+        if (currentPolyline && currentPolyline.getLatLngs().length > 1) finishDrawing();
+
+        currentMode = mode; currentTitle = title; currentColor = color; currentDash = dashArray; 
         
         if(isMeasuring) { toggleMeasureMode(); } 
         if(polygonDrawer) { polygonDrawer.disable(); }
@@ -524,17 +526,17 @@
         
         var hint = document.getElementById('draw-hint'); hint.style.display = 'block';
         if (mode.includes('dz') || mode.includes('cn')) {
-            hint.innerHTML = "🖱️ Click từng điểm để vẽ.<br>✅ <b>Click đúp</b>, bấm <b>Enter</b>, hoặc <b>click lại nút vẽ</b> để LƯU.<br><span class='hint-esc'>❌ Nhấn phím ESC để HỦY.</span>";
+            hint.innerHTML = "🖱️ Click từng điểm để vẽ.<br>✅ <b>Click đúp</b>, bấm <b>Enter</b>, hoặc <b>nhấn lại nút Menu</b> để LƯU.<br><span class='hint-esc'>💡 Nhấn ESC để Hủy thao tác vẽ.</span>";
         } else {
             hint.innerHTML = "🖱️ Click vào bản đồ để cắm thiết bị.<br><span class='hint-esc'>💡 Nhấn ESC hoặc click lại nút để TẮT</span>";
         }
         document.getElementById('map').classList.add('drawing-mode-active');
     }
 
-    // BẮT SỰ KIỆN BÀN PHÍM
     document.addEventListener('keydown', function(event) { 
         if (event.key === "Escape") { 
-            closeGallery(); cancelDrawing(); 
+            closeGallery(); 
+            cancelDrawing(); 
         } 
         if (event.key === "Enter") {
             if (currentPolyline) finishDrawing();
@@ -543,13 +545,13 @@
 
     function addPointToLine(latlng) {
         if (!currentPolyline) {
-            // CẢI TIẾN: Thêm interactive: false để đường dây KHÔNG cản trở click chuột
+            // CẢI TIẾN: Để interactive = false giúp đường dây không cản trở việc click đúp
             let style = { color: currentColor, weight: 4, opacity: 0.9, interactive: false }; 
             if (currentDash) style.dashArray = currentDash;
-            
-            // CẢI TIẾN: Tạm thời chỉ add vào map (không add vào cụm) để vẽ mượt hơn
-            currentPolyline = L.polyline([latlng], style).addTo(map); 
+            currentPolyline = L.polyline([latlng], style).addTo(map);
             currentPolyline.options.customData = { type: currentMode, title: currentTitle, color: currentColor, dash: currentDash };
+            // FIX LỖI CRASH DATA: Cấp metadata cho đường dây ngay từ điểm đầu tiên
+            currentPolyline.options.metadata = { name: 'Đường dây mới', info: '', tram: '', img: '', maLienKet: generateId() };
         } else { 
             currentPolyline.addLatLng(latlng); 
         }
@@ -601,9 +603,6 @@
             setTimeout(() => { if (e.layer && e.layer.closePopup) e.layer.closePopup(); }, 10);
             return;
         }
-        if (currentMode && (currentMode.includes('dz') || currentMode.includes('cn'))) {
-            addPointToLine(e.latlng); setTimeout(() => { if (e.layer && e.layer.closePopup) e.layer.closePopup(); }, 10);
-        }
     });
 
     map.on('dblclick', finishDrawing); map.on('contextmenu', finishDrawing);
@@ -612,7 +611,6 @@
         if (e && e.originalEvent) e.originalEvent.preventDefault();
         if (isMeasuring) { isMeasuring = false; document.getElementById('draw-hint').innerHTML = "📏 Đo xong. Nhấn <b>ESC</b> để xóa."; return; }
         if (currentPolyline) { 
-            // CẢI TIẾN: Tránh lưu những đường dây chỉ có 1 điểm (bấm nhầm click)
             if (currentPolyline.getLatLngs().length > 1) {
                 finalizePolyline(currentPolyline); 
             } else {
@@ -623,16 +621,16 @@
     }
 
     function finalizePolyline(polyLayer) {
-        map.removeLayer(polyLayer); // Rút đường dây khỏi layer map tạm
-        polyLayer.setStyle({ interactive: true }); // Mở khóa cho phép click chuột lại
+        map.removeLayer(polyLayer); 
+        polyLayer.setStyle({ interactive: true }); // Mở khóa cho phép bấm sửa lại
         
         let latlngs = polyLayer.getLatLngs(); 
         let dist = 0;
         for(let i=0; i<latlngs.length-1; i++) dist += map.distance(latlngs[i], latlngs[i+1]);
-        if(!polyLayer.options.customData) polyLayer.options.customData = {};
+        
         polyLayer.options.customData.length = dist; 
         
-        drawnItems.addLayer(polyLayer); // Gắn chính thức vào hệ thống
+        drawnItems.addLayer(polyLayer); 
         editLayerData(L.stamp(polyLayer), true);
         
         updateStationFilterUI('Chưa phân trạm'); 
@@ -779,8 +777,8 @@
     };
 
     function updatePopupContent(layer) {
-        var meta = layer.options.metadata; var custom = layer.options.customData || {}; var layerId = L.stamp(layer);
-        var content = `<div class="popup-form"><h3>${custom.title || ''} - ${meta.name}</h3>`;
+        var meta = layer.options.metadata || {}; var custom = layer.options.customData || {}; var layerId = L.stamp(layer);
+        var content = `<div class="popup-form"><h3>${custom.title || ''} - ${meta.name || ''}</h3>`;
         
         if (custom.length !== undefined) {
             content += `<div style="background:#e0f2fe; color:#0369a1; padding:6px; border-radius:4px; font-size:13px; font-weight:bold; margin-bottom:8px; text-align:center; border: 1px dashed #0284c7;">📏 Chiều dài dây: ${formatDistance(custom.length)}</div>`;
@@ -845,7 +843,7 @@
         let stations = new Set();
         
         drawnItems.eachLayer(layer => {
-            let tram = (layer.options.metadata.tram || '').trim();
+            let tram = (layer.options.metadata && layer.options.metadata.tram) ? layer.options.metadata.tram.trim() : '';
             stations.add(tram === '' ? 'Chưa phân trạm' : tram);
         });
 
@@ -880,7 +878,7 @@
         let checkedStations = getCheckedStations();
         
         drawnItems.eachLayer(layer => {
-            let tram = (layer.options.metadata.tram || '').trim();
+            let tram = (layer.options.metadata && layer.options.metadata.tram) ? layer.options.metadata.tram.trim() : '';
             if (tram === '') tram = 'Chưa phân trạm';
 
             let isVisible = checkedStations.includes(tram);
@@ -952,14 +950,14 @@
         var hint = document.getElementById('draw-hint');
         hint.style.display = 'block'; hint.innerHTML = "💾 Đang đồng bộ lên Firebase...";
 
-        var data = drawnItems.toGeoJSON(); 
-        var i = 0;
+        // FIX LỖI CRASH DATA KHI SAVE: Đóng gói metadata cứng vào Feature trước khi đẩy lên Firebase
         drawnItems.eachLayer(function(layer) { 
-            if(data.features[i]) { 
-                data.features[i].properties = { metadata: layer.options.metadata, customData: layer.options.customData }; 
-            } 
-            i++; 
+            if (!layer.feature) { layer.feature = { type: "Feature", properties: {} }; }
+            layer.feature.properties.metadata = layer.options.metadata || { name: 'Thiết bị/Đường dây mới', info: '', tram: '', img: '', maLienKet: generateId() };
+            layer.feature.properties.customData = layer.options.customData || { type: 'tba', title: 'Thiết bị' };
         });
+
+        var data = drawnItems.toGeoJSON(); 
 
         fetch(FIREBASE_URL, {
             method: 'PUT',
