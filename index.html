@@ -244,6 +244,9 @@
     }); 
     map.addLayer(drawnItems);
     
+    // Kho chứa các thiết bị đang bị tắt lọc
+    var hiddenItems = new L.FeatureGroup(); 
+    
     var nationalLayer = new L.FeatureGroup();
 
     var hanoiIcon = L.divIcon({
@@ -489,20 +492,16 @@
     }
 
     function cancelDrawing() {
-        // Tắt sửa mốc
         if (window.editingLayerId) {
             saveEditShape();
             return;
         }
-        // Tắt dời cột
         if (window.movingLayerId) { 
             window.movingLayerId = null; 
             document.getElementById('map').classList.remove('drawing-mode-active');
             document.getElementById('draw-hint').style.display = 'none';
         }
-        // Tắt vẽ dây
         if (currentPolyline) { 
-            // Ấn ESC vẫn lưu đường dây nếu đã vẽ > 1 điểm
             if (currentPolyline.getLatLngs().length > 1) {
                 finalizePolyline(currentPolyline);
             } else {
@@ -555,7 +554,6 @@
 
     function addPointToLine(latlng) {
         if (!currentPolyline) {
-            // interactive: false để vẽ mượt, không bị chặn click đúp
             let style = { color: currentColor, weight: 4, opacity: 0.9, interactive: false }; 
             if (currentDash) style.dashArray = currentDash;
             currentPolyline = L.polyline([latlng], style).addTo(map);
@@ -567,7 +565,7 @@
     }
 
     map.on('click', function(e) {
-        if (window.editingLayerId) return; // Đang sửa mốc chặn tạo mới
+        if (window.editingLayerId) return;
 
         if (window.movingLayerId) {
             var layerToMove = drawnItems.getLayer(window.movingLayerId);
@@ -604,7 +602,6 @@
         }
     });
 
-    // CHẠM VÀO CỘT KHI ĐANG VẼ SẼ NỐI DÂY VÀO ĐÓ
     drawnItems.on('click', function(e) {
         if (window.editingLayerId) return;
 
@@ -633,21 +630,16 @@
         if (currentMode && (currentMode.includes('dz') || currentMode.includes('cn'))) {
             addPointToLine(e.latlng); 
 
-            // ---> THÊM LOGIC TỰ NHẬN TRẠM Ở ĐÂY <---
             if (e.layer && e.layer.options && e.layer.options.metadata) {
                 let clickedTram = e.layer.options.metadata.tram;
-                // Nếu cột được click có tên trạm
                 if (clickedTram && clickedTram.trim() !== "") {
                     if (currentPolyline) {
-                        // Nếu đường dây đang vẽ chưa có tên trạm thì gán tên trạm của cột vào
                         if (!currentPolyline.options.metadata.tram || currentPolyline.options.metadata.tram === "") {
                             currentPolyline.options.metadata.tram = clickedTram.trim();
                         }
                     }
                 }
             }
-            // ---------------------------------------
-
             return;
         }
     });
@@ -752,7 +744,6 @@
         hint.innerHTML = "📍 <b>Chế độ Dời vị trí:</b> Click vào chỗ trống trên bản đồ để chuyển thiết bị tới đó.<br><span class='hint-esc'>💡 Nhấn ESC để HỦY</span>";
     };
 
-    // 1. CHỨC NĂNG VẼ TIẾP ĐƯỜNG DÂY
     window.continueLine = function(layerId) {
         var layer = drawnItems.getLayer(layerId);
         if (!layer) return;
@@ -772,7 +763,6 @@
         hint.innerHTML = `🔗 <b>Đang Vẽ Tiếp:</b> Click để nối dài dây.<br><button onclick="finishDrawing()" style="margin-top:8px; padding:6px 20px; background:#16a34a; color:white; border:none; border-radius:6px; font-weight:bold; cursor:pointer; font-size:14px; box-shadow: 0 4px 6px rgba(0,0,0,0.2);">💾 XONG / LƯU LẠI</button>`;
     };
 
-    // 2. CHỨC NĂNG SỬA MỐC ĐƯỜNG DÂY (DỜI ĐIỂM)
     window.startEditShape = function(layerId) {
         var layer = drawnItems.getLayer(layerId);
         if (!layer) return;
@@ -794,7 +784,6 @@
             if (layer && layer.editing) {
                 layer.editing.disable();
                 
-                // Tính toán lại chiều dài
                 let latlngs = layer.getLatLngs(); let dist = 0;
                 if (latlngs.length > 0 && !Array.isArray(latlngs[0])) {
                     for(let i=0; i<latlngs.length-1; i++) dist += map.distance(latlngs[i], latlngs[i+1]);
@@ -934,10 +923,13 @@
         let currentChecked = getCheckedStations(); 
         let stations = new Set();
         
-        drawnItems.eachLayer(layer => {
+        const collectStation = layer => {
             let tram = (layer.options.metadata && layer.options.metadata.tram) ? layer.options.metadata.tram.trim() : '';
             stations.add(tram === '' ? 'Chưa phân trạm' : tram);
-        });
+        };
+
+        drawnItems.eachLayer(collectStation);
+        hiddenItems.eachLayer(collectStation);
 
         let stationArray = Array.from(stations).sort();
         let listContainer = document.getElementById('station-filter-list');
@@ -973,17 +965,20 @@
             let tram = (layer.options.metadata && layer.options.metadata.tram) ? layer.options.metadata.tram.trim() : '';
             if (tram === '') tram = 'Chưa phân trạm';
 
-            let isVisible = checkedStations.includes(tram);
-
-            if (layer.getElement) { 
-                let el = layer.getElement();
-                if (el) el.style.display = isVisible ? '' : 'none';
+            if (!checkedStations.includes(tram)) {
+                drawnItems.removeLayer(layer); 
+                hiddenItems.addLayer(layer);   
+                if (layer.isPopupOpen()) layer.closePopup();
             }
-            if (layer._icon) layer._icon.style.display = isVisible ? '' : 'none';
-            if (layer._shadow) layer._shadow.style.display = isVisible ? '' : 'none';
+        });
 
-            if (!isVisible && layer.isPopupOpen()) {
-                layer.closePopup();
+        hiddenItems.eachLayer(layer => {
+            let tram = (layer.options.metadata && layer.options.metadata.tram) ? layer.options.metadata.tram.trim() : '';
+            if (tram === '') tram = 'Chưa phân trạm';
+
+            if (checkedStations.includes(tram)) {
+                hiddenItems.removeLayer(layer);
+                drawnItems.addLayer(layer); 
             }
         });
     }
@@ -1011,6 +1006,7 @@
             if (!res || !res.features) return; 
             
             drawnItems.clearLayers();
+            hiddenItems.clearLayers();
             L.geoJSON(res, {
                 pointToLayer: function(feature, latlng) {
                     let custom = feature.properties.customData || {}; let type = custom.type || 'tba'; let meta = feature.properties.metadata || {}; return L.marker(latlng, { icon: getCustomIcon(type, meta.name || '') });
@@ -1042,14 +1038,18 @@
         var hint = document.getElementById('draw-hint');
         hint.style.display = 'block'; hint.innerHTML = "💾 Đang đồng bộ lên Firebase...";
 
-        var data = drawnItems.toGeoJSON(); 
-        var i = 0;
-        drawnItems.eachLayer(function(layer) { 
-            if(data.features[i]) { 
-                data.features[i].properties = { metadata: layer.options.metadata, customData: layer.options.customData }; 
-            } 
-            i++; 
-        });
+        var data = { type: "FeatureCollection", features: [] };
+
+        const processSave = function(layer) {
+            if (layer.toGeoJSON) {
+                var geo = layer.toGeoJSON();
+                geo.properties = { metadata: layer.options.metadata, customData: layer.options.customData };
+                data.features.push(geo);
+            }
+        };
+
+        drawnItems.eachLayer(processSave);
+        hiddenItems.eachLayer(processSave);
 
         fetch(FIREBASE_URL, {
             method: 'PUT',
@@ -1124,10 +1124,10 @@
     }
 
     function exportToExcel() {
-        if (drawnItems.getLayers().length === 0) { alert("Bản đồ chưa có dữ liệu để xuất!"); return; }
+        if (drawnItems.getLayers().length === 0 && hiddenItems.getLayers().length === 0) { alert("Bản đồ chưa có dữ liệu để xuất!"); return; }
         let excelData = [];
         
-        drawnItems.eachLayer(function(layer) {
+        const processExcel = function(layer) {
             let meta = layer.options.metadata || {}; 
             let custom = layer.options.customData || {};
             let lat = '', lng = '';
@@ -1156,7 +1156,10 @@
                 "mã liên kết": meta.maLienKet || '',
                 "trạm": meta.tram || ''
             });
-        });
+        };
+
+        drawnItems.eachLayer(processExcel);
+        hiddenItems.eachLayer(processExcel);
 
         try {
             let ws = XLSX.utils.json_to_sheet(excelData);
